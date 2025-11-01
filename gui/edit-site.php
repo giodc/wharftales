@@ -177,15 +177,21 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                 <select class="form-select" id="mobile-nav-select">
                     <option value="overview" selected>📊 Overview</option>
                     <option value="settings">⚙️ Settings</option>
+                    <?php if ($site['type'] !== 'mariadb'): ?>
                     <option value="domain">🌐 Domain & SSL</option>
+                    <?php endif; ?>
                     <option value="container">📦 Container</option>
+                    <?php if ($site['type'] !== 'mariadb'): ?>
                     <option value="files">📁 Files & Volumes</option>
+                    <?php endif; ?>
                     <option value="logs">💻 Logs</option>
-                    <?php if ($hasDedicatedDb && $dbContainerExists): ?>
+                    <?php if (($hasDedicatedDb && $dbContainerExists) || $site['type'] === 'mariadb'): ?>
                     <option value="database">🗄️ Database</option>
                     <?php endif; ?>
+                    <?php if ($site['type'] !== 'mariadb'): ?>
                     <option value="redis">⚡ Redis Cache</option>
                     <option value="sftp">🔌 SFTP Access</option>
+                    <?php endif; ?>
                     <option value="backup">💾 Backup & Restore</option>
                     <?php if (isAdmin()): ?>
                     <option value="compose">📝 Docker Compose</option>
