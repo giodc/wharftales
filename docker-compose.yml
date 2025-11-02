@@ -64,7 +64,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.webgui.rule=Host(`Dashboard.local.wharftales.org`)
       - traefik.http.routers.webgui.entrypoints=web
-      - traefik.http.services.webgui.loadbalancer.server.port=8080
+      - traefik.http.services.webgui.loadbalancer.server.port=808080
     networks:
       - wharftales
     restart: unless-stopped

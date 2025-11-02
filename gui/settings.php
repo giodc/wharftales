@@ -155,7 +155,7 @@ function updateDashboardTraefikConfig($domain, $enableSSL) {
     $labels .= "      - traefik.enable=true\n";
     $labels .= "      - traefik.http.routers.webgui.rule=Host(`{$domain}`)\n";
     $labels .= "      - traefik.http.routers.webgui.entrypoints=web\n";
-    $labels .= "      - traefik.http.services.webgui.loadbalancer.server.port=80\n";
+    $labels .= "      - traefik.http.services.webgui.loadbalancer.server.port=8080\n";
     
     if ($enableSSL === '1') {
         $labels .= "      - traefik.http.routers.webgui-secure.rule=Host(`{$domain}`)\n";
