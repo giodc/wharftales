@@ -98,6 +98,25 @@ if [ "$UPDATE_MODE" = true ]; then
             sed -i "s/letsencrypt\.acme\.email=info@giodc\.com/letsencrypt.acme.email=$OLD_EMAIL/" docker-compose.yml
         fi
     fi
+
+    # Apply installer overrides for domain/email and standardize ports if provided
+    # DASHBOARD_DOMAIN: sets Host(`...`) for web-gui routers
+    # LE_EMAIL: updates Traefik ACME email
+    if [ -f "docker-compose.yml" ]; then
+        if [ -n "${LE_EMAIL:-}" ]; then
+            echo "Applying Let's Encrypt email from LE_EMAIL: $LE_EMAIL"
+            sed -i "s/--certificatesresolvers\.letsencrypt\.acme\.email=[^"]*/--certificatesresolvers.letsencrypt.acme.email=$LE_EMAIL/" docker-compose.yml
+        fi
+        if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
+            echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
+            sed -i "s#traefik\.http\.routers\.webgui\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui.rule=Host(`$DASHBOARD_DOMAIN`)#" docker-compose.yml || true
+            sed -i "s#traefik\.http\.routers\.webgui-secure\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-secure.rule=Host(`$DASHBOARD_DOMAIN`)#" docker-compose.yml || true
+            sed -i "s#traefik\.http\.routers\.webgui-alt\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-alt.rule=Host(`$DASHBOARD_DOMAIN`)#" docker-compose.yml || true
+        fi
+        # Ensure correct internal service port and host mapping for web-gui
+        sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' docker-compose.yml || true
+        sed -i 's/\(\s*-\s*"\)9000:80\(\"\)/\19000:8080\2/' docker-compose.yml || true
+    fi
     
     # Restore acme.json from backup (preserve SSL certificates)
     if [ -f "$BACKUP_DIR/acme.json" ]; then
@@ -286,6 +305,20 @@ ACME_EOF
         echo "Setting permissions on docker-compose.yml..."
         chmod 664 /opt/wharftales/docker-compose.yml
         chown www-data:www-data /opt/wharftales/docker-compose.yml
+        # Apply installer overrides for domain/email and standardize ports if provided
+        if [ -n "${LE_EMAIL:-}" ]; then
+            echo "Applying Let's Encrypt email from LE_EMAIL: $LE_EMAIL"
+            sed -i "s/--certificatesresolvers\.letsencrypt\.acme\.email=[^"]*/--certificatesresolvers.letsencrypt.acme.email=$LE_EMAIL/" /opt/wharftales/docker-compose.yml
+        fi
+        if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
+            echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
+            sed -i "s#traefik\.http\.routers\.webgui\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui.rule=Host(`$DASHBOARD_DOMAIN`)#" /opt/wharftales/docker-compose.yml || true
+            sed -i "s#traefik\.http\.routers\.webgui-secure\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-secure.rule=Host(`$DASHBOARD_DOMAIN`)#" /opt/wharftales/docker-compose.yml || true
+            sed -i "s#traefik\.http\.routers\.webgui-alt\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-alt.rule=Host(`$DASHBOARD_DOMAIN`)#" /opt/wharftales/docker-compose.yml || true
+        fi
+        # Ensure correct internal service port and host mapping for web-gui
+        sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' /opt/wharftales/docker-compose.yml || true
+        sed -i 's/\(\s*-\s*"\)9000:80\(\"\)/\19000:8080\2/' /opt/wharftales/docker-compose.yml || true
     fi
     
     # Set Docker socket permissions (use docker group instead of world-writable)
