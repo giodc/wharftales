@@ -9,13 +9,13 @@ nginx/sites/*.conf
 # Docker volumes
 volumes/
 
+# Server-specific configuration (each server has its own)
+docker-compose.yml
+
 # Environment files
 .env
 .env.local
 .env.production
-
-# Server-specific configuration (each server has its own)
-docker-compose.yml
 
 # Application specific
 apps/*/sites/
