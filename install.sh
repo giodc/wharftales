@@ -109,9 +109,10 @@ if [ "$UPDATE_MODE" = true ]; then
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
-            sed -i "s#traefik\.http\.routers\.webgui\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui.rule=Host(`$DASHBOARD_DOMAIN`)#" docker-compose.yml || true
-            sed -i "s#traefik\.http\.routers\.webgui-secure\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-secure.rule=Host(`$DASHBOARD_DOMAIN`)#" docker-compose.yml || true
-            sed -i "s#traefik\.http\.routers\.webgui-alt\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-alt.rule=Host(`$DASHBOARD_DOMAIN`)#" docker-compose.yml || true
+            # Use single-quoted sed with variable interpolation to avoid backtick command substitution
+            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(`[^`]*`)#traefik.http.routers.webgui.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-secure.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-alt.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' docker-compose.yml || true
@@ -312,9 +313,9 @@ ACME_EOF
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
-            sed -i "s#traefik\.http\.routers\.webgui\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui.rule=Host(`$DASHBOARD_DOMAIN`)#" /opt/wharftales/docker-compose.yml || true
-            sed -i "s#traefik\.http\.routers\.webgui-secure\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-secure.rule=Host(`$DASHBOARD_DOMAIN`)#" /opt/wharftales/docker-compose.yml || true
-            sed -i "s#traefik\.http\.routers\.webgui-alt\.rule=Host\(`[^`]*`\)#traefik.http.routers.webgui-alt.rule=Host(`$DASHBOARD_DOMAIN`)#" /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(`[^`]*`)#traefik.http.routers.webgui.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-secure.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-alt.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' /opt/wharftales/docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' /opt/wharftales/docker-compose.yml || true
