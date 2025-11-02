@@ -494,6 +494,7 @@ function createSiteHandler($db) {
             "container_name" => $containerName,
             "config" => $data,
             "db_type" => $dbType,
+            "include_www" => $data["include_www"] ?? false,
             "github_repo" => $githubRepo,
             "github_branch" => $githubBranch,
             "github_token" => $githubToken
@@ -675,10 +676,24 @@ function deployPHP($site, $config, $db) {
     }
 }
 
+/**
+ * Generate Traefik host rule with optional www subdomain
+ * @param string $domain The primary domain
+ * @param bool $includeWww Whether to include www subdomain
+ * @return string Traefik host rule
+ */
+function generateHostRule($domain, $includeWww = false) {
+    if ($includeWww) {
+        return "Host(`{$domain}`) || Host(`www.{$domain}`)";
+    }
+    return "Host(`{$domain}`)";
+}
+
 function createPHPDockerCompose($site, $config, &$generatedPassword = null) {
     $containerName = $site["container_name"];
     $domain = $site["domain"];
     $phpVersion = $site["php_version"] ?? '8.3';
+    $includeWww = $site["include_www"] ?? 0;
     
     // Ensure container name is not empty
     if (empty($containerName)) {
@@ -725,10 +740,11 @@ services:
       - DB_PASSWORD=";
     }
     
+    $hostRule = generateHostRule($domain, $includeWww);
     $compose .= "
     labels:
       - traefik.enable=true
-      - traefik.http.routers.{$containerName}.rule=Host(`{$domain}`)
+      - traefik.http.routers.{$containerName}.rule={$hostRule}
       - traefik.http.routers.{$containerName}.entrypoints=web
       - traefik.http.services.{$containerName}.loadbalancer.server.port=8080";
     
@@ -744,7 +760,7 @@ services:
         }
         
         $compose .= "
-      - traefik.http.routers.{$containerName}-secure.rule=Host(`{$domain}`)
+      - traefik.http.routers.{$containerName}-secure.rule={$hostRule}
       - traefik.http.routers.{$containerName}-secure.entrypoints=websecure
       - traefik.http.routers.{$containerName}-secure.tls=true
       - traefik.http.routers.{$containerName}-secure.tls.certresolver={$certResolver}
@@ -997,6 +1013,7 @@ function createLaravelDockerCompose($site, $config, &$generatedPassword = null) 
     $containerName = $site["container_name"];
     $domain = $site["domain"];
     $phpVersion = $site["php_version"] ?? '8.3';
+    $includeWww = $site["include_www"] ?? 0;
     
     // Check database type
     $dbType = $config['laravel_db_type'] ?? 'mysql';
@@ -1033,10 +1050,11 @@ services:
       - DB_PASSWORD=";
     }
     
+    $hostRule = generateHostRule($domain, $includeWww);
     $compose .= "
     labels:
       - traefik.enable=true
-      - traefik.http.routers.{$containerName}.rule=Host(`{$domain}`)
+      - traefik.http.routers.{$containerName}.rule={$hostRule}
       - traefik.http.routers.{$containerName}.entrypoints=web
       - traefik.http.services.{$containerName}.loadbalancer.server.port=8080";
     
@@ -1052,7 +1070,7 @@ services:
         }
         
         $compose .= "
-      - traefik.http.routers.{$containerName}-secure.rule=Host(`{$domain}`)
+      - traefik.http.routers.{$containerName}-secure.rule={$hostRule}
       - traefik.http.routers.{$containerName}-secure.entrypoints=websecure
       - traefik.http.routers.{$containerName}-secure.tls=true
       - traefik.http.routers.{$containerName}-secure.tls.certresolver={$certResolver}
@@ -1125,6 +1143,7 @@ function createWordPressDockerCompose($site, $config, &$generatedPassword = null
     $containerName = $site["container_name"];
     $domain = $site["domain"];
     $phpVersion = $site["php_version"] ?? '8.3';
+    $includeWww = $site["include_www"] ?? 0;
     
     // Check database type (dedicated or custom)
     $dbType = $config['wp_db_type'] ?? 'dedicated';
@@ -1201,10 +1220,11 @@ services:
     }
     
     // Generate Traefik labels with SSL support
+    $hostRule = generateHostRule($domain, $includeWww);
     $compose .= "
     labels:
       - traefik.enable=true
-      - traefik.http.routers.{$containerName}.rule=Host(`{$domain}`)
+      - traefik.http.routers.{$containerName}.rule={$hostRule}
       - traefik.http.routers.{$containerName}.entrypoints=web
       - traefik.http.services.{$containerName}.loadbalancer.server.port=8080";
     
@@ -1220,7 +1240,7 @@ services:
         }
         
         $compose .= "
-      - traefik.http.routers.{$containerName}-secure.rule=Host(`{$domain}`)
+      - traefik.http.routers.{$containerName}-secure.rule={$hostRule}
       - traefik.http.routers.{$containerName}-secure.entrypoints=websecure
       - traefik.http.routers.{$containerName}-secure.tls=true
       - traefik.http.routers.{$containerName}-secure.tls.certresolver={$certResolver}
@@ -1596,12 +1616,14 @@ function updateSiteSSLConfig($db) {
         }
         
         // Update site with new SSL configuration
-        $stmt = $db->prepare("UPDATE sites SET name = ?, domain = ?, ssl = ?, ssl_config = ? WHERE id = ?");
+        $includeWww = isset($input["include_www"]) ? ($input["include_www"] ? 1 : 0) : 0;
+        $stmt = $db->prepare("UPDATE sites SET name = ?, domain = ?, ssl = ?, ssl_config = ?, include_www = ? WHERE id = ?");
         $stmt->execute([
             $input["name"],
             $input["domain"], 
             $input["ssl"] ? 1 : 0,
             json_encode($newSslConfig),
+            $includeWww,
             $siteId
         ]);
 

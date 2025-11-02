@@ -264,6 +264,22 @@ $customWildcardDomain = getSetting($db, 'custom_wildcard_domain', '');
                             </div>
                         </div>
 
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="include_www" id="includeWwwCheck">
+                                    <label class="form-check-label" for="includeWwwCheck">
+                                        Also include www subdomain
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    When checked, both <strong>domain.com</strong> and <strong>www.domain.com</strong> will be configured. 
+                                    If SSL is enabled, the certificate will cover both domains.
+                                </div>
+                            </div>
+                        </div>
+
                         <div id="sslChallengeOptions" style="display: none;">
                             <div class="mb-3">
                                 <label class="form-label">SSL Challenge Method</label>

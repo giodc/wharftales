@@ -647,6 +647,19 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                             </div>
                             <div class="mb-3">
                                 <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="includeWww" <?= ($site['include_www'] ?? 0) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="includeWww">
+                                        Also include www subdomain
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    When checked, both <strong>domain.com</strong> and <strong>www.domain.com</strong> will be configured. 
+                                    If SSL is enabled, the certificate will cover both domains.
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" id="sslEnabled" <?= $site['ssl'] ? 'checked' : '' ?> onchange="toggleSSLOptions()">
                                     <label class="form-check-label" for="sslEnabled">
                                         Enable HTTPS (Let's Encrypt)
@@ -1811,6 +1824,7 @@ QUEUE_CONNECTION=redis</code></pre>
             e.preventDefault();
             const domain = document.getElementById('siteDomain').value;
             const ssl = document.getElementById('sslEnabled').checked;
+            const includeWww = document.getElementById('includeWww').checked;
             
             // Gather SSL configuration
             const sslConfig = {
@@ -1850,6 +1864,7 @@ QUEUE_CONNECTION=redis</code></pre>
                         name: siteName,
                         domain: domain,
                         ssl: ssl,
+                        include_www: includeWww,
                         ssl_config: sslConfig
                     })
                 });

@@ -164,6 +164,9 @@ function initDatabase() {
         if (!in_array('db_port', $columnNames)) {
             $pdo->exec("ALTER TABLE sites ADD COLUMN db_port INTEGER DEFAULT 3306");
         }
+        if (!in_array('include_www', $columnNames)) {
+            $pdo->exec("ALTER TABLE sites ADD COLUMN include_www INTEGER DEFAULT 0");
+        }
     } catch (Exception $e) {
         // Columns might already exist or other error, continue
     }
@@ -234,7 +237,7 @@ function setSetting($pdo, $key, $value) {
 }
 
 function createSite($pdo, $data) {
-    $stmt = $pdo->prepare("INSERT INTO sites (name, type, domain, ssl, ssl_config, container_name, config, db_password, db_type, owner_id, php_version, github_repo, github_branch, github_token, deployment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO sites (name, type, domain, ssl, ssl_config, container_name, config, db_password, db_type, owner_id, php_version, include_www, github_repo, github_branch, github_token, deployment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $containerName = $data['container_name'] ?? '';
     $config = json_encode($data['config'] ?? []);
     $sslConfig = isset($data['ssl_config']) ? json_encode($data['ssl_config']) : null;
@@ -242,6 +245,7 @@ function createSite($pdo, $data) {
     $dbType = $data['db_type'] ?? 'shared';
     $ownerId = $data['owner_id'] ?? $_SESSION['user_id'] ?? 1;
     $phpVersion = $data['php_version'] ?? '8.4';
+    $includeWww = isset($data['include_www']) ? ($data['include_www'] ? 1 : 0) : 0;
     
     // GitHub deployment fields
     $githubRepo = $data['github_repo'] ?? null;
@@ -266,6 +270,7 @@ function createSite($pdo, $data) {
         $dbType,
         $ownerId,
         $phpVersion,
+        $includeWww,
         $githubRepo,
         $githubBranch,
         $githubToken,
