@@ -109,10 +109,10 @@ if [ "$UPDATE_MODE" = true ]; then
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
-            # Use single-quoted sed with variable interpolation to avoid backtick command substitution
-            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-secure.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-alt.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' docker-compose.yml || true
+            # Replace dashboard domain in Traefik configuration
+            sed -i "s#traefik\\.http\\.routers\\.webgui\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" docker-compose.yml || true
+            sed -i "s#traefik\\.http\\.routers\\.webgui-secure\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-secure.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" docker-compose.yml || true
+            sed -i "s#traefik\\.http\\.routers\\.webgui-alt\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-alt.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' docker-compose.yml || true
@@ -313,9 +313,9 @@ ACME_EOF
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
-            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' /opt/wharftales/docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-secure.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' /opt/wharftales/docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-alt.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' /opt/wharftales/docker-compose.yml || true
+            sed -i "s#traefik\\.http\\.routers\\.webgui\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" /opt/wharftales/docker-compose.yml || true
+            sed -i "s#traefik\\.http\\.routers\\.webgui-secure\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-secure.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" /opt/wharftales/docker-compose.yml || true
+            sed -i "s#traefik\\.http\\.routers\\.webgui-alt\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-alt.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" /opt/wharftales/docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' /opt/wharftales/docker-compose.yml || true
@@ -409,11 +409,13 @@ docker exec -u root wharftales_gui bash -c "touch /app/data/database.sqlite && c
 
 echo "Initializing database..."
 sleep 2
-docker exec wharftales_gui php -r "
+docker exec wharftales_gui php <<'INITEOF' || echo "Database initialization failed - will be created on first access"
+<?php
 require '/var/www/html/includes/functions.php';
-\$db = initDatabase();
-echo 'Database initialized successfully\n';
-" || echo "Database initialization failed - will be created on first access"
+$db = initDatabase();
+echo "Database initialized successfully\n";
+?>
+INITEOF
 
 echo "Verifying database permissions..."
 docker exec -u root wharftales_gui bash -c "chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite"
