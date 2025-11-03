@@ -110,9 +110,9 @@ if [ "$UPDATE_MODE" = true ]; then
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
             # Use single-quoted sed with variable interpolation to avoid backtick command substitution
-            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(`[^`]*`)#traefik.http.routers.webgui.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-secure.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-alt.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-secure.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-alt.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' docker-compose.yml || true
@@ -313,9 +313,9 @@ ACME_EOF
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
-            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(`[^`]*`)#traefik.http.routers.webgui.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' /opt/wharftales/docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-secure.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' /opt/wharftales/docker-compose.yml || true
-            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-alt.rule=Host(`'"$DASHBOARD_DOMAIN"'`)#' /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-secure.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(\`[^\`]*\`)#traefik.http.routers.webgui-alt.rule=Host(\`'"$DASHBOARD_DOMAIN"'\`)#' /opt/wharftales/docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' /opt/wharftales/docker-compose.yml || true
@@ -428,25 +428,27 @@ echo "Importing docker-compose configurations to database..."
 docker exec wharftales_gui php /var/www/html/migrate-compose-to-db.php 2>/dev/null || echo "Compose migration will run on first settings update"
 
 echo "Importing docker-compose.yml into database..."
-docker exec wharftales_gui php -r "
+docker exec wharftales_gui php <<'PHPEOF' 2>/dev/null || echo "Compose config will be imported on first settings save"
+<?php
 require '/var/www/html/includes/functions.php';
-\$db = initDatabase();
-\$composeFile = '/opt/wharftales/docker-compose.yml';
-if (file_exists(\$composeFile)) {
-    \$yaml = file_get_contents(\$composeFile);
-    \$stmt = \$db->prepare('SELECT * FROM compose_configs WHERE config_type = \"main\" LIMIT 1');
-    \$stmt->execute();
-    \$existing = \$stmt->fetch(PDO::FETCH_ASSOC);
-    if (\$existing) {
-        \$stmt = \$db->prepare('UPDATE compose_configs SET compose_yaml = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-        \$stmt->execute([\$yaml, \$existing['id']]);
+$db = initDatabase();
+$composeFile = '/opt/wharftales/docker-compose.yml';
+if (file_exists($composeFile)) {
+    $yaml = file_get_contents($composeFile);
+    $stmt = $db->prepare('SELECT * FROM compose_configs WHERE config_type = "main" LIMIT 1');
+    $stmt->execute();
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($existing) {
+        $stmt = $db->prepare('UPDATE compose_configs SET compose_yaml = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+        $stmt->execute([$yaml, $existing['id']]);
     } else {
-        \$stmt = \$db->prepare('INSERT INTO compose_configs (config_type, compose_yaml, created_at, updated_at) VALUES (\"main\", ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
-        \$stmt->execute([\$yaml]);
+        $stmt = $db->prepare('INSERT INTO compose_configs (config_type, compose_yaml, created_at, updated_at) VALUES ("main", ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
+        $stmt->execute([$yaml]);
     }
-    echo 'Docker compose configuration imported successfully\n';
+    echo "Docker compose configuration imported successfully\n";
 }
-" 2>/dev/null || echo "Compose config will be imported on first settings save"
+?>
+PHPEOF
 
 echo ""
 echo "==============================="
