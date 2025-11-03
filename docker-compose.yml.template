@@ -97,8 +97,6 @@ services:
       - SETGID
       - DAC_OVERRIDE
     
-    
-    
     labels:
       - traefik.enable=true
       - traefik.http.routers.webgui.rule=Host(`CHANGE_ME.example.com`)

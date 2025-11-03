@@ -713,12 +713,29 @@ function createPHPDockerCompose($site, $config, &$generatedPassword = null) {
     $dbPassword = bin2hex(random_bytes(16));
     $generatedPassword = $dbPassword;
     
+    // Check if pre-built image exists
+    $imageName = "wharftales/php:{$phpVersion}-apache";
+    exec("docker image inspect {$imageName} 2>/dev/null", $output, $imageExists);
+    
     $compose = "version: '3.8'
 services:
-  {$containerName}:
+  {$containerName}:";
+    
+    if ($imageExists === 0) {
+        // Use pre-built image for faster deployment
+        $compose .= "
+    image: {$imageName}";
+    } else {
+        // Fallback to building from Dockerfile
+        $compose .= "
     build:
       context: /app/apps/php
       dockerfile: Dockerfile
+      args:
+        PHP_VERSION: {$phpVersion}";
+    }
+    
+    $compose .= "
     container_name: {$containerName}
     volumes:
       - {$containerName}_data:/var/www/html
@@ -1023,12 +1040,29 @@ function createLaravelDockerCompose($site, $config, &$generatedPassword = null) 
     $dbPassword = bin2hex(random_bytes(16));
     $generatedPassword = $dbPassword;
     
+    // Check if pre-built image exists
+    $imageName = "wharftales/laravel:{$phpVersion}-fpm";
+    exec("docker image inspect {$imageName} 2>/dev/null", $output, $imageExists);
+    
     $compose = "version: '3.8'
 services:
-  {$containerName}:
+  {$containerName}:";
+    
+    if ($imageExists === 0) {
+        // Use pre-built image for faster deployment
+        $compose .= "
+    image: {$imageName}";
+    } else {
+        // Fallback to building from Dockerfile
+        $compose .= "
     build:
       context: /app/apps/laravel
       dockerfile: Dockerfile
+      args:
+        PHP_VERSION: {$phpVersion}";
+    }
+    
+    $compose .= "
     container_name: {$containerName}
     volumes:
       - {$containerName}_data:/var/www/html
@@ -1159,13 +1193,30 @@ function createWordPressDockerCompose($site, $config, &$generatedPassword = null
     // Check if optimizations are enabled
     $wpOptimize = $config['wp_optimize'] ?? false;
     
+    // Check if pre-built image exists
+    $imageName = "wharftales/wordpress:{$phpVersion}-fpm";
+    exec("docker image inspect {$imageName} 2>/dev/null", $output, $imageExists);
+    
     // Use custom WordPress Dockerfile with security improvements
     $compose = "version: '3.8'
 services:
-  {$containerName}:
+  {$containerName}:";
+    
+    if ($imageExists === 0) {
+        // Use pre-built image for faster deployment
+        $compose .= "
+    image: {$imageName}";
+    } else {
+        // Fallback to building from Dockerfile
+        $compose .= "
     build:
       context: /app/apps/wordpress
       dockerfile: Dockerfile
+      args:
+        PHP_VERSION: {$phpVersion}";
+    }
+    
+    $compose .= "
     container_name: {$containerName}
     environment:";
     
@@ -4171,7 +4222,7 @@ function changePHPVersionHandler($db) {
         }
         
         // Validate PHP version
-        $validVersions = ['7.4', '8.0', '8.1', '8.2', '8.3'];
+        $validVersions = ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5'];
         if (!in_array($newVersion, $validVersions)) {
             throw new Exception("Invalid PHP version. Supported: " . implode(', ', $validVersions));
         }
@@ -4216,8 +4267,11 @@ function changePHPVersionHandler($db) {
             // Write to file
             file_put_contents($composePath, $newCompose);
             
-            // Recreate container with new PHP version
-            $result = executeDockerCompose($composePath, "up -d --force-recreate");
+            // Stop and remove the old container first
+            executeDockerCompose($composePath, "down");
+            
+            // Recreate container with new PHP version (--build forces image rebuild)
+            $result = executeDockerCompose($composePath, "up -d --build --force-recreate");
             
             if ($result['success']) {
                 logAudit('php_version_changed', 'site', $siteId, [

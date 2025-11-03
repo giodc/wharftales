@@ -1,4 +1,5 @@
-FROM wordpress:6.4-php8.2-fpm
+ARG PHP_VERSION=8.3
+FROM wordpress:6.4-php${PHP_VERSION}-fpm
 
 # Install optimization tools and extensions
 RUN apt-get update && apt-get install -y \

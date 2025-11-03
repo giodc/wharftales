@@ -1,4 +1,5 @@
-FROM php:8.2-apache
+ARG PHP_VERSION=8.3
+FROM php:${PHP_VERSION}-apache
 
 # Install PHP extensions
 RUN apt-get update && apt-get install -y \
