@@ -454,3 +454,5 @@ echo "Installation completed!"
 echo "==============================="
 echo "Access the web GUI at http://your-server-ip:9000"
 echo "Default credentials will be created on first access"
+
+exit 0
