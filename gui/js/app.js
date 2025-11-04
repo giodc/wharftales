@@ -1,7 +1,7 @@
 let createModal, editModal, passwordModal, updateModal, twoFactorModal;
 
 // Version check - if you see this in console, the new JS is loaded
-console.log("WharfTales JS v5.2 loaded - All API calls use session detection!");
+console.log("WharfTales JS v5.3 loaded - Updater fixes applied!");
 
 // Helper function for API calls with proper error handling
 async function apiCall(url, options = {}) {
@@ -591,7 +591,10 @@ async function checkForUpdatesBackground() {
         const result = await response.json();
         
         if (result.success && result.data.update_available) {
-            document.getElementById("updateLink").style.display = "block";
+            const updateLink = document.getElementById("updateLink");
+            if (updateLink) {
+                updateLink.style.display = "block";
+            }
         }
     } catch (error) {
         console.error("Failed to check for updates:", error);
@@ -599,7 +602,18 @@ async function checkForUpdatesBackground() {
 }
 
 async function showUpdateModal() {
+    if (!updateModal) {
+        console.error("Update modal not initialized");
+        return;
+    }
+    
     updateModal.show();
+    
+    const updateContent = document.getElementById("updateContent");
+    if (!updateContent) {
+        console.error("Update content element not found");
+        return;
+    }
     
     try {
         const response = await fetch("api.php?action=get_update_info");
@@ -608,7 +622,7 @@ async function showUpdateModal() {
         if (result.success) {
             displayUpdateInfo(result.info, result.changelog);
         } else {
-            document.getElementById("updateContent").innerHTML = `
+            updateContent.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
                     Failed to load update information: ${result.error}
@@ -616,7 +630,7 @@ async function showUpdateModal() {
             `;
         }
     } catch (error) {
-        document.getElementById("updateContent").innerHTML = `
+        updateContent.innerHTML = `
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-triangle me-2"></i>
                 Network error: ${error.message}
@@ -627,6 +641,12 @@ async function showUpdateModal() {
 
 function displayUpdateInfo(info, changelog) {
     const updateBtn = document.getElementById("performUpdateBtn");
+    const updateContent = document.getElementById("updateContent");
+    
+    if (!updateContent) {
+        console.error("Update content element not found");
+        return;
+    }
     
     let html = `
         <div class="row mb-3">
@@ -648,7 +668,9 @@ function displayUpdateInfo(info, changelog) {
                 <strong>Update Available!</strong> A new version is ready to install.
             </div>
         `;
-        updateBtn.style.display = "block";
+        if (updateBtn) {
+            updateBtn.style.display = "block";
+        }
     } else {
         html += `
             <div class="alert alert-info">
@@ -656,7 +678,9 @@ function displayUpdateInfo(info, changelog) {
                 You are running the latest version.
             </div>
         `;
-        updateBtn.style.display = "none";
+        if (updateBtn) {
+            updateBtn.style.display = "none";
+        }
     }
     
     if (info.has_local_changes) {
@@ -698,11 +722,18 @@ function displayUpdateInfo(info, changelog) {
         </div>
     `;
     
-    document.getElementById("updateContent").innerHTML = html;
+    updateContent.innerHTML = html;
 }
 
 async function performUpdate() {
     const updateBtn = document.getElementById("performUpdateBtn");
+    const updateContent = document.getElementById("updateContent");
+    
+    if (!updateBtn || !updateContent) {
+        console.error("Update UI elements not found");
+        return;
+    }
+    
     const originalText = updateBtn.innerHTML;
     
     if (!confirm("Are you sure you want to update? This will pull the latest changes from Git and may restart services.")) {
@@ -712,7 +743,7 @@ async function performUpdate() {
     updateBtn.innerHTML = "<span class=\"spinner-border spinner-border-sm me-2\"></span>Updating...";
     updateBtn.disabled = true;
     
-    document.getElementById("updateContent").innerHTML = `
+    updateContent.innerHTML = `
         <div class="text-center py-4">
             <div class="spinner-border text-primary mb-3" role="status"></div>
             <h5>Installing Update...</h5>
@@ -728,7 +759,7 @@ async function performUpdate() {
         const result = await response.json();
         
         if (result.success) {
-            document.getElementById("updateContent").innerHTML = `
+            updateContent.innerHTML = `
                 <div class="alert alert-success">
                     <i class="bi bi-check-circle me-2"></i>
                     <strong>Update Successful!</strong><br>
@@ -744,7 +775,7 @@ async function performUpdate() {
                 location.reload();
             }, 3000);
         } else {
-            document.getElementById("updateContent").innerHTML = `
+            updateContent.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
                     <strong>Update Failed!</strong><br>
@@ -755,7 +786,7 @@ async function performUpdate() {
             updateBtn.disabled = false;
         }
     } catch (error) {
-        document.getElementById("updateContent").innerHTML = `
+        updateContent.innerHTML = `
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-triangle me-2"></i>
                 <strong>Network Error!</strong><br>
