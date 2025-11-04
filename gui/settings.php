@@ -923,11 +923,7 @@ $updateInfo = checkForUpdates(false);
             }
         }
 
-        // Update Modal Functions
-        function showUpdateModal() {
-            const modal = new bootstrap.Modal(document.getElementById('updateModal'));
-            modal.show();
-        }
+        // Update Modal Functions - Using the one from app.js
 
         async function startUpdate(skipBackup = false) {
             const btn = document.getElementById('updateBtn');

@@ -1,7 +1,7 @@
 let createModal, editModal, passwordModal, updateModal, twoFactorModal;
 
 // Version check - if you see this in console, the new JS is loaded
-console.log("WharfTales JS v5.3 loaded - Updater fixes applied!");
+console.log("WharfTales JS v5.4 loaded - Updater fixes with debug logging!");
 
 // Helper function for API calls with proper error handling
 async function apiCall(url, options = {}) {
@@ -602,6 +602,8 @@ async function checkForUpdatesBackground() {
 }
 
 async function showUpdateModal() {
+    console.log("showUpdateModal called");
+    
     if (!updateModal) {
         console.error("Update modal not initialized");
         return;
@@ -615,21 +617,32 @@ async function showUpdateModal() {
         return;
     }
     
+    console.log("Fetching update info from API...");
+    
     try {
         const response = await fetch("api.php?action=get_update_info");
+        console.log("API response status:", response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const result = await response.json();
+        console.log("API result:", result);
         
         if (result.success) {
             displayUpdateInfo(result.info, result.changelog);
         } else {
+            console.error("API returned error:", result.error);
             updateContent.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    Failed to load update information: ${result.error}
+                    Failed to load update information: ${result.error || 'Unknown error'}
                 </div>
             `;
         }
     } catch (error) {
+        console.error("Error in showUpdateModal:", error);
         updateContent.innerHTML = `
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-triangle me-2"></i>
@@ -640,11 +653,24 @@ async function showUpdateModal() {
 }
 
 function displayUpdateInfo(info, changelog) {
+    console.log("displayUpdateInfo called with:", { info, changelog });
+    
     const updateBtn = document.getElementById("performUpdateBtn");
     const updateContent = document.getElementById("updateContent");
     
     if (!updateContent) {
-        console.error("Update content element not found");
+        console.error("Update content element not found in displayUpdateInfo");
+        return;
+    }
+    
+    if (!info) {
+        console.error("No update info provided");
+        updateContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Invalid update information received
+            </div>
+        `;
         return;
     }
     
