@@ -1,10 +1,10 @@
 {
   "wharftales": {
-    "latest": "0.0.9",
-    "min_supported": "0.0.1",
+    "latest": "0.0.10",
+    "min_supported": "0.0.10",
     "update_url": "https://raw.githubusercontent.com/giodc/wharftales/main/scripts/upgrade.sh",
     "changelog_url": "https://github.com/giodc/wharftales/releases",
     "release_notes": "minors fixes",
-    "released_at": "2025-11-01"
+    "released_at": "2025-11-04"
   }
 }
