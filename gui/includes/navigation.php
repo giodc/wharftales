@@ -15,12 +15,30 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 </svg>
         Wharftales
             <span class="badge bg-secondary ms-2 fw-normal" style="font-size: 0.7rem;">
-                v<?php 
+               <?php 
                     $versionFile = '/var/www/html/../VERSION';
                     echo file_exists($versionFile) ? trim(file_get_contents($versionFile)) : '1.0.0';
                 ?>
             </span>
         </a>
+        <?php
+                // Check for updates notification
+                $updateNotification = getSetting($db, 'update_notification', '0');
+                if ($updateNotification === '1'):
+                    $cachedUpdate = getSetting($db, 'cached_update_info', null);
+                    $updateData = $cachedUpdate ? json_decode($cachedUpdate, true) : null;
+                ?>
+                <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link position-relative fw-semibold" href="/settings.php#updates" title="Update Available">
+                        Update Available
+                        <?php if ($updateData && isset($updateData['latest_version'])): ?>
+                        <span class="badge bg-warning text-light ms-1"><?= htmlspecialchars($updateData['latest_version']) ?></span>
+                        <?php endif; ?>
+                       
+                    </a>
+                </li></ul>
+                <?php endif; ?>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -45,25 +63,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </li>
             </ul>
             <ul class="navbar-nav">
-                <?php
-                // Check for updates notification
-                $updateNotification = getSetting($db, 'update_notification', '0');
-                if ($updateNotification === '1'):
-                    $cachedUpdate = getSetting($db, 'cached_update_info', null);
-                    $updateData = $cachedUpdate ? json_decode($cachedUpdate, true) : null;
-                ?>
-                <li class="nav-item">
-                    <a class="nav-link position-relative text-warning fw-semibold" href="/settings.php#updates" title="Update Available">
-                        <i class="bi bi-arrow-up-circle me-1"></i>Update Available
-                        <?php if ($updateData && isset($updateData['latest_version'])): ?>
-                        <span class="badge bg-warning text-dark ms-1"><?= htmlspecialchars($updateData['latest_version']) ?></span>
-                        <?php endif; ?>
-                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-warning border border-light rounded-circle">
-                            <span class="visually-hidden">Update available</span>
-                        </span>
-                    </a>
-                </li>
-                <?php endif; ?>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle me-1"></i><?= htmlspecialchars($currentUser['username']) ?>
