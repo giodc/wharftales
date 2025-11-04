@@ -1,6 +1,6 @@
 {
   "wharftales": {
-    "latest": "0.0.15",
+    "latest": "0.0.16",
     "min_supported": "0.0.9",
     "update_url": "https://raw.githubusercontent.com/giodc/wharftales/main/scripts/upgrade.sh",
     "changelog_url": "https://github.com/giodc/wharftales/releases",
