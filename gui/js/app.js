@@ -1,7 +1,7 @@
 let createModal, editModal, passwordModal, updateModal, twoFactorModal;
 
 // Version check - if you see this in console, the new JS is loaded
-console.log("WharfTales JS v5.4 loaded - Updater fixes with debug logging!");
+console.log("WharfTales JS v5.5 loaded - Fixed function name conflicts!");
 
 // Helper function for API calls with proper error handling
 async function apiCall(url, options = {}) {

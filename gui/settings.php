@@ -689,7 +689,7 @@ $updateInfo = checkForUpdates(false);
                 const result = await response.json();
                 
                 if (result.success) {
-                    displayUpdateInfo(result.info, result.changelog);
+                    displayUpdateInfoSettings(result.info, result.changelog || []);
                 } else {
                     infoSection.innerHTML = `
                         <div class="alert alert-danger">
@@ -712,7 +712,7 @@ $updateInfo = checkForUpdates(false);
             }
         }
 
-        function displayUpdateInfo(info, changelog) {
+        function displayUpdateInfoSettings(info, changelog) {
             const checkSection = document.getElementById('updateCheckSection');
             const infoSection = document.getElementById('updateInfoSection');
             
@@ -733,7 +733,7 @@ $updateInfo = checkForUpdates(false);
                         <i class="bi bi-check-circle me-2"></i>
                         <strong>Update Available!</strong> A new version is ready to install.
                     </div>
-                    <button class="btn btn-success mb-3" onclick="performUpdate()">
+                    <button class="btn btn-success mb-3" onclick="performUpdateSettings()">
                         <i class="bi bi-download me-2"></i>Install Update Now
                     </button>
                 `;
@@ -781,7 +781,7 @@ $updateInfo = checkForUpdates(false);
             checkSection.style.display = 'none';
         }
 
-        async function performUpdate() {
+        async function performUpdateSettings() {
             if (!confirm('Are you sure you want to update? This will pull the latest changes from Git and may restart services.')) {
                 return;
             }
