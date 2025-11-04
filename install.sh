@@ -115,7 +115,7 @@ if [ "$UPDATE_MODE" = true ]; then
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' docker-compose.yml || true
-        sed -i 's/9000:80/9000:8080/g' docker-compose.yml || true
+        sed -i 's/"9000:80"/"9000:8080"/g' docker-compose.yml || true
     fi
     
     # Restore acme.json from backup (preserve SSL certificates)
@@ -320,7 +320,7 @@ ACME_EOF
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' /opt/wharftales/docker-compose.yml || true
-        sed -i 's/9000:80/9000:8080/g' /opt/wharftales/docker-compose.yml || true
+        sed -i 's/"9000:80"/"9000:8080"/g' /opt/wharftales/docker-compose.yml || true
     fi
     
     # Set Docker socket permissions (use docker group instead of world-writable)
