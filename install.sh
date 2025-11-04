@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Exit on error, but allow some commands to fail gracefully
 set -e
 
 echo "WharfTales Installation Script"
@@ -105,18 +104,18 @@ if [ "$UPDATE_MODE" = true ]; then
     if [ -f "docker-compose.yml" ]; then
         if [ -n "${LE_EMAIL:-}" ]; then
             echo "Applying Let's Encrypt email from LE_EMAIL: $LE_EMAIL"
-            sed -i "s/--certificatesresolvers\.letsencrypt\.acme\.email=[^"]*/--certificatesresolvers.letsencrypt.acme.email=$LE_EMAIL/" docker-compose.yml
+            sed -i "s/--certificatesresolvers\\.letsencrypt\\.acme\\.email=[^\"]*/--certificatesresolvers.letsencrypt.acme.email=$LE_EMAIL/" docker-compose.yml
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
             # Replace dashboard domain in Traefik configuration
-            sed -i "s#traefik\\.http\\.routers\\.webgui\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" docker-compose.yml || true
-            sed -i "s#traefik\\.http\\.routers\\.webgui-secure\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-secure.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" docker-compose.yml || true
-            sed -i "s#traefik\\.http\\.routers\\.webgui-alt\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-alt.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui-secure.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui-alt.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' docker-compose.yml || true
-        sed -i 's/\(\s*-\s*"\)9000:80\(\"\)/\19000:8080\2/' docker-compose.yml || true
+        sed -i 's/9000:80/9000:8080/g' docker-compose.yml || true
     fi
     
     # Restore acme.json from backup (preserve SSL certificates)
@@ -203,7 +202,8 @@ if [ "$UPDATE_MODE" = true ]; then
     docker exec wharftales_gui php /var/www/html/migrate-compose-to-db.php 2>/dev/null || echo "Compose migration completed or already applied"
     
     echo "Initializing database tables..."
-    docker exec wharftales_gui sqlite3 /app/data/database.sqlite << 'EOSQL' 2>/dev/null || echo "Database tables already exist"
+    docker exec wharftales_gui sqlite3 /app/data/database.sqlite 2>/dev/null <<'EOSQL'
+
 CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT UNIQUE NOT NULL,
@@ -223,6 +223,7 @@ CREATE TABLE IF NOT EXISTS compose_configs (
     updated_by INTEGER
 );
 EOSQL
+    [ $? -ne 0 ] && echo "Database tables already exist"
     
     echo ""
     echo "==============================="
@@ -243,7 +244,7 @@ else
             echo "Cloning WharfTales from GitHub..."
             git clone https://github.com/giodc/wharftales.git /opt/wharftales
         fi
-    fi
+    fi  # Close the if [ "$PWD" = "/opt/wharftales" ] check
     
     cd /opt/wharftales
     chown -R wharftales:wharftales /opt/wharftales
@@ -258,7 +259,7 @@ else
     
     # Create ACME file for SSL certificates
     echo "Creating ACME file for SSL certificates..."
-    cat > /opt/wharftales/ssl/acme.json << 'ACME_EOF'
+    cat > /opt/wharftales/ssl/acme.json <<'ACME_EOF'
 {
   "letsencrypt": {
     "Account": {
@@ -309,17 +310,17 @@ ACME_EOF
         # Apply installer overrides for domain/email and standardize ports if provided
         if [ -n "${LE_EMAIL:-}" ]; then
             echo "Applying Let's Encrypt email from LE_EMAIL: $LE_EMAIL"
-            sed -i "s/--certificatesresolvers\.letsencrypt\.acme\.email=[^"]*/--certificatesresolvers.letsencrypt.acme.email=$LE_EMAIL/" /opt/wharftales/docker-compose.yml
+            sed -i "s/--certificatesresolvers\.letsencrypt\.acme\.email=[^\"]*/--certificatesresolvers.letsencrypt.acme.email=$LE_EMAIL/" /opt/wharftales/docker-compose.yml
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
             echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
-            sed -i "s#traefik\\.http\\.routers\\.webgui\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" /opt/wharftales/docker-compose.yml || true
-            sed -i "s#traefik\\.http\\.routers\\.webgui-secure\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-secure.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" /opt/wharftales/docker-compose.yml || true
-            sed -i "s#traefik\\.http\\.routers\\.webgui-alt\\.rule=Host\(\\\`[^\\\`]*\\\`\)#traefik.http.routers.webgui-alt.rule=Host\(\\\`$DASHBOARD_DOMAIN\\\`\)#" /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui-secure.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' /opt/wharftales/docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui-alt.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' /opt/wharftales/docker-compose.yml || true
         fi
         # Ensure correct internal service port and host mapping for web-gui
         sed -i 's/traefik\.http\.services\.webgui\.loadbalancer\.server\.port=[0-9]\+/traefik.http.services.webgui.loadbalancer.server.port=8080/' /opt/wharftales/docker-compose.yml || true
-        sed -i 's/\(\s*-\s*"\)9000:80\(\"\)/\19000:8080\2/' /opt/wharftales/docker-compose.yml || true
+        sed -i 's/9000:80/9000:8080/g' /opt/wharftales/docker-compose.yml || true
     fi
     
     # Set Docker socket permissions (use docker group instead of world-writable)
@@ -333,8 +334,9 @@ ACME_EOF
     echo "Creating backup directory..."
     mkdir -p /opt/wharftales/data/backups
     chown -R www-data:www-data /opt/wharftales/data/backups
-fi
+fi  # Close the main if [ "$UPDATE_MODE" = true ] block
 
+# Common setup for both new installations and updates
 # Note: SSL certificates are handled by Traefik (no certbot needed)
 # Traefik automatically requests and renews Let's Encrypt certificates
 
@@ -350,7 +352,7 @@ fi
 # Verify ACME file exists
 if [ ! -f "/opt/wharftales/ssl/acme.json" ]; then
     echo "Creating ACME file for SSL certificates..."
-    cat > /opt/wharftales/ssl/acme.json << 'ACME_EOF'
+    cat > /opt/wharftales/ssl/acme.json <<'ACME_EOF'
 {
   "letsencrypt": {
     "Account": {
@@ -409,13 +411,14 @@ docker exec -u root wharftales_gui bash -c "touch /app/data/database.sqlite && c
 
 echo "Initializing database..."
 sleep 2
-docker exec wharftales_gui php <<'INITEOF' || echo "Database initialization failed - will be created on first access"
+docker exec wharftales_gui php 2>/dev/null <<'INITEOF'
 <?php
 require '/var/www/html/includes/functions.php';
 $db = initDatabase();
 echo "Database initialized successfully\n";
 ?>
 INITEOF
+[ $? -ne 0 ] && echo "Database initialization failed - will be created on first access"
 
 echo "Verifying database permissions..."
 docker exec -u root wharftales_gui bash -c "chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite"
@@ -430,7 +433,7 @@ echo "Importing docker-compose configurations to database..."
 docker exec wharftales_gui php /var/www/html/migrate-compose-to-db.php 2>/dev/null || echo "Compose migration will run on first settings update"
 
 echo "Importing docker-compose.yml into database..."
-docker exec wharftales_gui php <<'PHPEOF' 2>/dev/null || echo "Compose config will be imported on first settings save"
+docker exec wharftales_gui php 2>/dev/null <<'PHPEOF'
 <?php
 require '/var/www/html/includes/functions.php';
 $db = initDatabase();
@@ -451,6 +454,7 @@ if (file_exists($composeFile)) {
 }
 ?>
 PHPEOF
+[ $? -ne 0 ] && echo "Compose config will be imported on first settings save"
 
 echo ""
 echo "==============================="
@@ -460,3 +464,4 @@ echo "Access the web GUI at http://your-server-ip:9000"
 echo "Default credentials will be created on first access"
 
 exit 0
+
