@@ -33,7 +33,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <a class="nav-link position-relative fw-semibold" href="/settings.php#updates" title="Update Available">
                         Update Available
                         <?php if ($updateData && isset($updateData['latest_version'])): ?>
-                        <span class="badge bg-warning text-light ms-1"><?= htmlspecialchars($updateData['latest_version']) ?></span>
+                        <span class="badge bg-success text-light ms-1"><?= htmlspecialchars($updateData['latest_version']) ?></span>
                         <?php endif; ?>
                        
                     </a>
