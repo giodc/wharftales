@@ -471,6 +471,16 @@ $updateInfo = checkForUpdates(false);
                                     <i class="bi bi-exclamation-triangle me-1 text-warning"></i>
                                     Automatically install updates when available (recommended for testing environments only)
                                 </div>
+
+                        <!-- Update Check Section (for JavaScript) -->
+                        <div id="updateCheckSection" class="mt-3">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                        
+                        <!-- Update Info Section (for JavaScript) -->
+                        <div id="updateInfoSection" class="mt-3" style="display: none;">
+                            <!-- Populated by JavaScript -->
+                        </div>
                             </div>
 
                             <div class="mb-3">
@@ -497,7 +507,7 @@ $updateInfo = checkForUpdates(false);
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-save me-2"></i>Save Update Settings
                                 </button>
-                                <button type="submit" name="check_updates" value="1" class="btn btn-secondary">
+                                <button type="button" class="btn btn-secondary" onclick="checkForUpdates()">
                                     <i class="bi bi-arrow-clockwise me-2"></i>Check Now
                                 </button>
                             </div>
