@@ -26,28 +26,45 @@ nslookup dashboard.wharftales.org || echo "DNS lookup failed"
 echo ""
 
 echo "5. Checking if Traefik is listening on ports 80 and 443..."
-docker exec traefik netstat -tlnp 2>/dev/null | grep -E ":(80|443)" || echo "netstat not available, checking with ss..."
-docker exec traefik ss -tlnp 2>/dev/null | grep -E ":(80|443)" || echo "Port check failed"
+docker exec wharftales_traefik netstat -tlnp 2>/dev/null | grep -E ":(80|443)" || echo "netstat not available, checking with ss..."
+docker exec wharftales_traefik ss -tlnp 2>/dev/null | grep -E ":(80|443)" || echo "Port check failed"
 echo ""
 
 echo "6. Checking Traefik logs for errors..."
-docker logs traefik --tail 50 2>&1 | grep -i "error\|dashboard"
+docker logs wharftales_traefik --tail 50 2>&1 | grep -i "error\|dashboard"
 echo ""
 
 echo "7. Checking web-gui logs..."
 docker logs wharftales_gui --tail 30
 echo ""
 
-echo "8. Testing HTTP access to dashboard domain..."
-curl -I http://dashboard.wharftales.org 2>&1 | head -10
+echo "8. Getting dashboard domain from database..."
+DASHBOARD_DOMAIN=$(docker exec wharftales_gui php -r "
+require '/var/www/html/includes/functions.php';
+\$db = initDatabase();
+echo getSetting(\$db, 'dashboard_domain', 'NOT SET');
+")
+echo "Dashboard Domain: $DASHBOARD_DOMAIN"
 echo ""
 
-echo "9. Testing HTTPS access to dashboard domain..."
-curl -I https://dashboard.wharftales.org 2>&1 | head -10
+echo "9. Testing HTTP access to dashboard domain..."
+if [ "$DASHBOARD_DOMAIN" != "NOT SET" ] && [ ! -z "$DASHBOARD_DOMAIN" ]; then
+    curl -I http://$DASHBOARD_DOMAIN 2>&1 | head -10
+else
+    echo "No dashboard domain configured"
+fi
 echo ""
 
-echo "10. Checking Traefik configuration..."
-docker exec traefik cat /etc/traefik/traefik.yml 2>/dev/null || echo "Traefik config not accessible"
+echo "10. Testing HTTPS access to dashboard domain..."
+if [ "$DASHBOARD_DOMAIN" != "NOT SET" ] && [ ! -z "$DASHBOARD_DOMAIN" ]; then
+    curl -I https://$DASHBOARD_DOMAIN 2>&1 | head -10
+else
+    echo "No dashboard domain configured"
+fi
+echo ""
+
+echo "11. Checking Traefik configuration..."
+docker exec wharftales_traefik cat /etc/traefik/traefik.yml 2>/dev/null || echo "Traefik config not accessible"
 echo ""
 
 echo "=== Diagnostics Complete ==="

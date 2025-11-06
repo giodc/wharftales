@@ -29,7 +29,7 @@ if ($setupCompleted === '1' && !$forceSetup) {
 // Get current settings
 $customWildcardDomain = getSetting($db, 'custom_wildcard_domain', '');
 $dashboardDomain = getSetting($db, 'dashboard_domain', '');
-$dashboardSsl = getSetting($db, 'dashboard_ssl_enabled', '0');
+$dashboardSsl = getSetting($db, 'dashboard_ssl', '0');
 $letsencryptEmail = getSetting($db, 'letsencrypt_email', '');
 $telemetryEnabled = isTelemetryEnabled();
 $installationId = getInstallationId();
@@ -498,12 +498,14 @@ $currentUser = getCurrentUser();
 
         async function saveSslAndNext() {
             const enabled = document.getElementById('enableDashboardSsl').checked;
+            const dashboardDomain = document.getElementById('dashboardDomain')?.value || '';
             
+            // Save SSL setting
             try {
                 const response = await fetch('/api.php?action=update_setting', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: 'dashboard_ssl_enabled', value: enabled ? '1' : '0' })
+                    body: JSON.stringify({ key: 'dashboard_ssl', value: enabled ? '1' : '0' })
                 });
                 
                 const result = await response.json();
@@ -514,6 +516,29 @@ $currentUser = getCurrentUser();
             } catch (error) {
                 alert('Network error: ' + error.message);
                 return;
+            }
+            
+            // If dashboard domain is set, update docker-compose with Traefik labels
+            if (dashboardDomain) {
+                try {
+                    const configResponse = await fetch('/api.php?action=update_dashboard_traefik', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            domain: dashboardDomain, 
+                            ssl: enabled ? '1' : '0' 
+                        })
+                    });
+                    
+                    const configResult = await configResponse.json();
+                    if (!configResult.success) {
+                        console.warn('Failed to update Traefik configuration:', configResult.error);
+                        // Don't block progression - user can fix this later
+                    }
+                } catch (error) {
+                    console.warn('Error updating Traefik config:', error.message);
+                    // Don't block progression
+                }
             }
             
             nextStep();
