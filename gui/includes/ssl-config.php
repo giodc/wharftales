@@ -268,3 +268,112 @@ function updateTraefikForDNSChallenge($dnsProvider, $credentials) {
     
     return true;
 }
+
+/**
+ * Update dashboard Traefik labels in docker-compose.yml
+ * This updates the web-gui service with the correct domain and SSL configuration
+ */
+function updateDashboardTraefikConfig($dashboardDomain, $enableSSL = false) {
+    $composePath = '/opt/wharftales/docker-compose.yml';
+    
+    if (\!file_exists($composePath)) {
+        error_log("Docker compose file not found at: $composePath");
+        throw new Exception("Docker compose file not found");
+    }
+    
+    // Read current docker-compose.yml
+    $composeContent = file_get_contents($composePath);
+    
+    // Parse and modify the docker-compose.yml content
+    $lines = explode("\n", $composeContent);
+    $newLines = [];
+    $inWebGuiService = false;
+    $inLabels = false;
+    $labelsAdded = false;
+    
+    for ($i = 0; $i < count($lines); $i++) {
+        $line = $lines[$i];
+        
+        // Detect web-gui service
+        if (preg_match('/^  web-gui:\s*$/', $line)) {
+            $inWebGuiService = true;
+            $newLines[] = $line;
+            continue;
+        }
+        
+        // Exit web-gui service when we hit another top-level service
+        if ($inWebGuiService && preg_match('/^  \w+:\s*$/', $line) && \!preg_match('/^    /', $line)) {
+            $inWebGuiService = false;
+            $inLabels = false;
+        }
+        
+        // Detect labels section in web-gui
+        if ($inWebGuiService && preg_match('/^\s+labels:\s*$/', $line)) {
+            $inLabels = true;
+            $newLines[] = $line;
+            
+            // Add or replace all Traefik labels
+            $newLines[] = '      - traefik.enable=true';
+            $newLines[] = '      - traefik.http.routers.webgui.rule=Host(`' . $dashboardDomain . '`)';
+            $newLines[] = '      - traefik.http.routers.webgui.entrypoints=web';
+            $newLines[] = '      - traefik.http.services.webgui.loadbalancer.server.port=8080';
+            
+            if ($enableSSL) {
+                // Add HTTPS router
+                $newLines[] = '      - traefik.http.routers.webgui-secure.rule=Host(`' . $dashboardDomain . '`)';
+                $newLines[] = '      - traefik.http.routers.webgui-secure.entrypoints=websecure';
+                $newLines[] = '      - traefik.http.routers.webgui-secure.tls=true';
+                $newLines[] = '      - traefik.http.routers.webgui-secure.tls.certresolver=letsencrypt';
+                
+                // Add HTTP to HTTPS redirect middleware
+                $newLines[] = '      - traefik.http.middlewares.webgui-redirect.redirectscheme.scheme=https';
+                $newLines[] = '      - traefik.http.middlewares.webgui-redirect.redirectscheme.permanent=true';
+                $newLines[] = '      - traefik.http.routers.webgui.middlewares=webgui-redirect';
+            }
+            
+            $labelsAdded = true;
+            
+            // Skip all existing label lines until we exit the labels section
+            $i++;
+            while ($i < count($lines)) {
+                $nextLine = $lines[$i];
+                // If we hit a line that's not a label (doesn't start with proper indentation + -), we're done
+                if (\!preg_match('/^\s+- /', $nextLine)) {
+                    // This line is not a label, so we need to process it normally
+                    $i--; // Go back one line so it gets processed in the main loop
+                    break;
+                }
+                $i++;
+            }
+            $inLabels = false;
+            continue;
+        }
+        
+        $newLines[] = $line;
+    }
+    
+    // Write updated docker-compose.yml
+    $newContent = implode("\n", $newLines);
+    
+    // Backup current file
+    $backupPath = $composePath . '.backup-' . date('YmdHis');
+    copy($composePath, $backupPath);
+    
+    file_put_contents($composePath, $newContent);
+    
+    return true;
+}
+
+/**
+ * Restart Traefik to apply configuration changes
+ */
+function restartTraefik() {
+    exec('cd /opt/wharftales && docker-compose up -d --force-recreate traefik web-gui 2>&1', $output, $returnCode);
+    
+    if ($returnCode \!== 0) {
+        error_log("Failed to restart Traefik: " . implode("\n", $output));
+        return false;
+    }
+    
+    return true;
+}
