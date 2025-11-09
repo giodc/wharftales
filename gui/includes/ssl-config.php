@@ -276,7 +276,7 @@ function updateTraefikForDNSChallenge($dnsProvider, $credentials) {
 function updateDashboardTraefikConfig($dashboardDomain, $enableSSL = false) {
     $composePath = '/opt/wharftales/docker-compose.yml';
     
-    if (\!file_exists($composePath)) {
+    if (!file_exists($composePath)) {
         error_log("Docker compose file not found at: $composePath");
         throw new Exception("Docker compose file not found");
     }
@@ -302,7 +302,7 @@ function updateDashboardTraefikConfig($dashboardDomain, $enableSSL = false) {
         }
         
         // Exit web-gui service when we hit another top-level service
-        if ($inWebGuiService && preg_match('/^  \w+:\s*$/', $line) && \!preg_match('/^    /', $line)) {
+        if ($inWebGuiService && preg_match('/^  \w+:\s*$/', $line) && !preg_match('/^    /', $line)) {
             $inWebGuiService = false;
             $inLabels = false;
         }
@@ -338,7 +338,7 @@ function updateDashboardTraefikConfig($dashboardDomain, $enableSSL = false) {
             while ($i < count($lines)) {
                 $nextLine = $lines[$i];
                 // If we hit a line that's not a label (doesn't start with proper indentation + -), we're done
-                if (\!preg_match('/^\s+- /', $nextLine)) {
+                if (!preg_match('/^\s+- /', $nextLine)) {
                     // This line is not a label, so we need to process it normally
                     $i--; // Go back one line so it gets processed in the main loop
                     break;
@@ -370,7 +370,7 @@ function updateDashboardTraefikConfig($dashboardDomain, $enableSSL = false) {
 function restartTraefik() {
     exec('cd /opt/wharftales && docker-compose up -d --force-recreate traefik web-gui 2>&1', $output, $returnCode);
     
-    if ($returnCode \!== 0) {
+    if ($returnCode !== 0) {
         error_log("Failed to restart Traefik: " . implode("\n", $output));
         return false;
     }
