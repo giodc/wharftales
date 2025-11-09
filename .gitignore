@@ -2,6 +2,7 @@
 
 # Runtime data
 data/
+backups/
 logs/
 ssl/
 nginx/sites/*.conf
