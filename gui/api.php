@@ -4194,6 +4194,23 @@ function updateSettingHandler($db) {
         $result = setSetting($db, $key, $value);
         
         if ($result) {
+            // If dashboard SSL or domain settings changed, update Traefik configuration
+            if ($key === 'dashboard_ssl' || $key === 'dashboard_domain') {
+                $dashboardDomain = getSetting($db, 'dashboard_domain', '');
+                $dashboardSSL = getSetting($db, 'dashboard_ssl', '0');
+                
+                if (!empty($dashboardDomain)) {
+                    try {
+                        updateDashboardTraefikConfig($dashboardDomain, $dashboardSSL === '1');
+                        restartTraefik();
+                        error_log("Dashboard Traefik configuration updated successfully");
+                    } catch (Exception $e) {
+                        error_log("Failed to update Traefik configuration: " . $e->getMessage());
+                        // Don't fail the setting update if Traefik update fails
+                    }
+                }
+            }
+            
             logAudit('setting_updated', 'setting', null, ['key' => $key]);
             echo json_encode(['success' => true, 'message' => 'Setting updated successfully']);
         } else {
