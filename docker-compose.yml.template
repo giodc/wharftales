@@ -24,7 +24,7 @@ services:
       - no-new-privileges:true
 
   traefik:
-    image: traefik:v3.0
+    image: traefik:v2.11
     container_name: wharftales_traefik
     command:
       - "--api.dashboard=false"

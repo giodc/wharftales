@@ -1,7 +1,7 @@
 
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:v2.11
     container_name: wharftales_traefik
     command:
       - "--api.dashboard=false"
@@ -62,30 +62,19 @@ services:
 
     labels:
       - traefik.enable=true
-      - traefik.http.routers.webgui.rule=Host(`Dashboard.local.wharftales.org`)
+      - traefik.http.routers.webgui.rule=Host(`dash.develop.wharftales.org`)
       - traefik.http.routers.webgui.entrypoints=web
-      - traefik.http.services.webgui.loadbalancer.server.port=808080
+      - traefik.http.services.webgui.loadbalancer.server.port=8080
+      - traefik.http.routers.webgui-secure.rule=Host(`dash.develop.wharftales.org`)
+      - traefik.http.routers.webgui-secure.entrypoints=websecure
+      - traefik.http.routers.webgui-secure.tls=true
+      - traefik.http.routers.webgui-secure.tls.certresolver=letsencrypt
+      - traefik.http.middlewares.webgui-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.webgui-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.webgui.middlewares=webgui-redirect
     networks:
       - wharftales
     restart: unless-stopped
-
-  db:
-    image: mariadb:latest
-    container_name: wharftales_db
-    environment:
-      - MYSQL_ROOT_PASSWORD=wharftales_root_pass
-      - MYSQL_DATABASE=wharftales
-      - MYSQL_USER=wharftales
-      - MYSQL_PASSWORD=wharftales_pass
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./db/init:/docker-entrypoint-initdb.d
-    networks:
-      - wharftales
-    restart: unless-stopped
-
-volumes:
-  db_data:
 
 networks:
   wharftales:
