@@ -394,6 +394,16 @@ $currentUser = getCurrentUser();
                     <h3 class="mt-3">Setup Complete!</h3>
                     <p class="lead">WharfTales is now configured and ready to use.</p>
 
+                    <!-- SSL Restart Status (hidden by default) -->
+                    <div id="sslRestartStatus" class="alert alert-warning mt-4" style="display: none;">
+                        <i class="bi bi-arrow-clockwise me-2"></i>
+                        <strong>Applying SSL Settings...</strong>
+                        <p class="mb-2">The dashboard container is restarting to enable HTTPS.</p>
+                        <p class="mb-0">
+                            <span id="redirectMessage"></span>
+                        </p>
+                    </div>
+
                     <div class="info-box text-start mt-4">
                         <strong><i class="bi bi-info-circle me-2"></i>What's next?</strong>
                         <ul class="mb-0 mt-2">
@@ -404,7 +414,7 @@ $currentUser = getCurrentUser();
                         </ul>
                     </div>
 
-                    <a href="/" class="btn btn-primary btn-lg btn-setup mt-4">
+                    <a href="/" class="btn btn-primary btn-lg btn-setup mt-4" id="dashboardButton">
                         <i class="bi bi-rocket-takeoff me-2"></i>Go to Dashboard
                     </a>
                 </div>
@@ -514,10 +524,11 @@ $currentUser = getCurrentUser();
                     return;
                 }
                 
-                // If SSL was enabled, show a message about automatic restart
-                if (result.requires_restart && enabled && dashboardDomain) {
-                    const delay = result.restart_delay || 15;
-                    alert('✓ SSL enabled successfully!\n\n🔄 The dashboard container will restart automatically in a few seconds to apply SSL settings.\n\n⏱️ Please wait ' + delay + ' seconds, then access your dashboard via HTTPS:\n\nhttps://' + dashboardDomain + '\n\nThe page will continue to the next step now.');
+                // Store restart info for later
+                if (result.deferred_restart && enabled && dashboardDomain) {
+                    // SSL restart will happen after wizard completes
+                    sessionStorage.setItem('ssl_enabled', '1');
+                    sessionStorage.setItem('dashboard_domain', dashboardDomain);
                 }
             } catch (error) {
                 alert('Network error: ' + error.message);
@@ -589,7 +600,54 @@ $currentUser = getCurrentUser();
                 return;
             }
             
-            showStep(7);
+            // Check if SSL was enabled during wizard
+            const sslEnabled = sessionStorage.getItem('ssl_enabled');
+            const dashboardDomain = sessionStorage.getItem('dashboard_domain');
+            
+            if (sslEnabled === '1' && dashboardDomain) {
+                // Clear session storage
+                sessionStorage.removeItem('ssl_enabled');
+                sessionStorage.removeItem('dashboard_domain');
+                
+                // Show completion step with SSL restart message
+                showStep(7);
+                
+                // Show SSL restart status
+                setTimeout(() => {
+                    document.getElementById('sslRestartStatus').style.display = 'block';
+                    
+                    // Update dashboard button to point to HTTPS
+                    const dashboardBtn = document.getElementById('dashboardButton');
+                    dashboardBtn.href = 'https://' + dashboardDomain;
+                    dashboardBtn.style.display = 'none'; // Hide until ready
+                    
+                    // Countdown timer
+                    let countdown = 15;
+                    const redirectMsg = document.getElementById('redirectMessage');
+                    
+                    const updateCountdown = () => {
+                        redirectMsg.innerHTML = `You will be redirected to <strong>https://${dashboardDomain}</strong> in <strong>${countdown}</strong> seconds...<br><small class="text-muted">Or click the button below once it appears.</small>`;
+                        countdown--;
+                        
+                        if (countdown === 5) {
+                            // Show button 5 seconds before redirect
+                            dashboardBtn.style.display = 'inline-block';
+                        }
+                        
+                        if (countdown < 0) {
+                            redirectMsg.innerHTML = 'Redirecting now...';
+                            window.location.href = 'https://' + dashboardDomain;
+                        } else {
+                            setTimeout(updateCountdown, 1000);
+                        }
+                    };
+                    
+                    updateCountdown();
+                }, 500);
+            } else {
+                // No SSL, just show completion
+                showStep(7);
+            }
         }
 
         // Initialize

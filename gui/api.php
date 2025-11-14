@@ -4178,14 +4178,19 @@ function updateSettingHandler($db) {
                         updateDashboardTraefikConfig($dashboardDomain, $dashboardSSL === '1');
                         restartTraefik();
                         
-                        // Schedule web-gui restart after response is sent
-                        // This allows the user to receive the success message before container restarts
-                        register_shutdown_function(function() {
-                            // Wait a moment to ensure response is fully sent
-                            sleep(1);
-                            // Restart web-gui container
-                            exec('cd /opt/wharftales && docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
-                        });
+                        // Check if setup is completed
+                        $setupCompleted = getSetting($db, 'setup_completed', '0');
+                        
+                        if ($setupCompleted === '1') {
+                            // Setup already completed - restart immediately
+                            register_shutdown_function(function() {
+                                sleep(1);
+                                exec('cd /opt/wharftales && docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
+                            });
+                        } else {
+                            // Setup wizard in progress - flag for restart after wizard completes
+                            setSetting($db, 'pending_container_restart', '1');
+                        }
                         
                         error_log("Dashboard Traefik configuration updated successfully");
                     } catch (Exception $e) {
@@ -4195,15 +4200,30 @@ function updateSettingHandler($db) {
                 }
             }
             
+            // If setup is being marked as completed, check if container restart is pending
+            if ($key === 'setup_completed' && $value === '1') {
+                $pendingRestart = getSetting($db, 'pending_container_restart', '0');
+                if ($pendingRestart === '1') {
+                    // Clear the flag and schedule restart
+                    setSetting($db, 'pending_container_restart', '0');
+                    register_shutdown_function(function() {
+                        sleep(2); // Wait a bit longer to ensure wizard completion page shows
+                        exec('cd /opt/wharftales && docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
+                    });
+                }
+            }
+            
             logAudit('setting_updated', 'setting', null, ['key' => $key]);
             
             // Return special message if dashboard SSL/domain was changed
             if ($key === 'dashboard_ssl' || $key === 'dashboard_domain') {
+                $setupCompleted = getSetting($db, 'setup_completed', '0');
                 echo json_encode([
                     'success' => true, 
                     'message' => 'Setting updated successfully',
-                    'requires_restart' => true,
-                    'restart_delay' => 15
+                    'requires_restart' => $setupCompleted === '1', // Only true if already completed
+                    'restart_delay' => 15,
+                    'deferred_restart' => $setupCompleted !== '1' // True during wizard
                 ]);
             } else {
                 echo json_encode(['success' => true, 'message' => 'Setting updated successfully']);
