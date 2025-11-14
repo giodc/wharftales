@@ -501,7 +501,8 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                         <div class="mb-3">
                             <label class="form-label">Current PHP Version</label>
                             <select class="form-select" id="phpVersionSelect">
-                                <option value="8.3" <?= ($site['php_version'] ?? '8.3') === '8.3' ? 'selected' : '' ?>>PHP 8.3 (Latest, Recommended)</option>
+                                <option value="8.4" <?= ($site['php_version'] ?? '8.3') === '8.4' ? 'selected' : '' ?>>PHP 8.4 (Latest)</option>
+                                <option value="8.3" <?= ($site['php_version'] ?? '8.3') === '8.3' ? 'selected' : '' ?>>PHP 8.3 (Recommended)</option>
                                 <option value="8.2" <?= ($site['php_version'] ?? '8.3') === '8.2' ? 'selected' : '' ?>>PHP 8.2</option>
                                 <option value="8.1" <?= ($site['php_version'] ?? '8.3') === '8.1' ? 'selected' : '' ?>>PHP 8.1</option>
                                 <option value="8.0" <?= ($site['php_version'] ?? '8.3') === '8.0' ? 'selected' : '' ?>>PHP 8.0</option>
