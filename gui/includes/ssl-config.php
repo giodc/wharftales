@@ -355,9 +355,13 @@ function updateDashboardTraefikConfig($dashboardDomain, $enableSSL = false) {
     // Write updated docker-compose.yml
     $newContent = implode("\n", $newLines);
     
-    // Backup current file
-    $backupPath = $composePath . '.backup-' . date('YmdHis');
-    copy($composePath, $backupPath);
+    // Backup current file to writable directory
+    $backupDir = '/app/data/backups';
+    if (!is_dir($backupDir)) {
+        @mkdir($backupDir, 0755, true);
+    }
+    $backupPath = $backupDir . '/docker-compose.yml.backup-' . date('YmdHis');
+    @copy($composePath, $backupPath);
     
     file_put_contents($composePath, $newContent);
     
@@ -366,9 +370,10 @@ function updateDashboardTraefikConfig($dashboardDomain, $enableSSL = false) {
 
 /**
  * Restart Traefik to apply configuration changes
+ * Note: Only restarts Traefik, not web-gui, to avoid killing the current request
  */
 function restartTraefik() {
-    exec('cd /opt/wharftales && docker-compose up -d --force-recreate traefik web-gui 2>&1', $output, $returnCode);
+    exec('cd /opt/wharftales && docker-compose up -d --force-recreate traefik 2>&1', $output, $returnCode);
     
     if ($returnCode !== 0) {
         error_log("Failed to restart Traefik: " . implode("\n", $output));

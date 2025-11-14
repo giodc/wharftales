@@ -3128,34 +3128,8 @@ function getDashboardStats($db, $id) {
     }
 }
 
-function restartTraefik() {
-    try {
-        // Change directory to wharftales
-        chdir('/opt/wharftales');
-        
-        // Stop and remove the old container to ensure config changes are picked up
-        exec("docker-compose stop traefik 2>&1", $output1, $returnCode1);
-        exec("docker-compose rm -f traefik 2>&1", $output2, $returnCode2);
-        
-        // Recreate with new configuration
-        exec("docker-compose up -d traefik 2>&1", $output3, $returnCode3);
-        
-        if ($returnCode3 === 0) {
-            echo json_encode([
-                "success" => true,
-                "message" => "Traefik recreated successfully with updated configuration"
-            ]);
-        } else {
-            throw new Exception("Failed to recreate Traefik: " . implode("\n", array_merge($output1, $output2, $output3)));
-        }
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode([
-            "success" => false,
-            "error" => $e->getMessage()
-        ]);
-    }
-}
+// NOTE: restartTraefik() is defined in includes/ssl-config.php
+// Removed duplicate to fix "Cannot redeclare restartTraefik()" fatal error
 
 function restartWebGui() {
     try {
