@@ -4177,6 +4177,11 @@ function updateSettingHandler($db) {
                     try {
                         updateDashboardTraefikConfig($dashboardDomain, $dashboardSSL === '1');
                         restartTraefik();
+                        
+                        // Restart web-gui to pick up new Traefik labels
+                        // Use a background process to avoid killing the current request
+                        exec('cd /opt/wharftales && nohup docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
+                        
                         error_log("Dashboard Traefik configuration updated successfully");
                     } catch (Exception $e) {
                         error_log("Failed to update Traefik configuration: " . $e->getMessage());
