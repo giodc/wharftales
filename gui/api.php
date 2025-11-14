@@ -4253,8 +4253,8 @@ function changePHPVersionHandler($db) {
             throw new Exception("Site ID and PHP version are required");
         }
         
-        // Validate PHP version
-        $validVersions = ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5'];
+        // Validate PHP version (only stable releases with official Docker images)
+        $validVersions = ['7.4', '8.0', '8.1', '8.2', '8.3'];
         if (!in_array($newVersion, $validVersions)) {
             throw new Exception("Invalid PHP version. Supported: " . implode(', ', $validVersions));
         }

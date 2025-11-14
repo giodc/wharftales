@@ -223,9 +223,7 @@ $customWildcardDomain = getSetting($db, 'custom_wildcard_domain', '');
                             <div class="col-md-6">
                                 <label class="form-label">PHP Version</label>
                                 <select class="form-select" name="php_version">
-                                    <option value="8.5">PHP 8.5 (Beta)</option>
-                                    <option value="8.4" selected>PHP 8.4 (Latest, Recommended)</option>
-                                    <option value="8.3">PHP 8.3</option>
+                                    <option value="8.3" selected>PHP 8.3 (Latest, Recommended)</option>
                                     <option value="8.2">PHP 8.2</option>
                                     <option value="8.1">PHP 8.1</option>
                                     <option value="8.0">PHP 8.0</option>
