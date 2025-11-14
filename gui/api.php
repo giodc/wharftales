@@ -4178,9 +4178,14 @@ function updateSettingHandler($db) {
                         updateDashboardTraefikConfig($dashboardDomain, $dashboardSSL === '1');
                         restartTraefik();
                         
-                        // Restart web-gui to pick up new Traefik labels
-                        // Use a background process to avoid killing the current request
-                        exec('cd /opt/wharftales && nohup docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
+                        // Schedule web-gui restart after response is sent
+                        // This allows the user to receive the success message before container restarts
+                        register_shutdown_function(function() {
+                            // Wait a moment to ensure response is fully sent
+                            sleep(1);
+                            // Restart web-gui container
+                            exec('cd /opt/wharftales && docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
+                        });
                         
                         error_log("Dashboard Traefik configuration updated successfully");
                     } catch (Exception $e) {
@@ -4191,7 +4196,18 @@ function updateSettingHandler($db) {
             }
             
             logAudit('setting_updated', 'setting', null, ['key' => $key]);
-            echo json_encode(['success' => true, 'message' => 'Setting updated successfully']);
+            
+            // Return special message if dashboard SSL/domain was changed
+            if ($key === 'dashboard_ssl' || $key === 'dashboard_domain') {
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Setting updated successfully',
+                    'requires_restart' => true,
+                    'restart_delay' => 15
+                ]);
+            } else {
+                echo json_encode(['success' => true, 'message' => 'Setting updated successfully']);
+            }
         } else {
             throw new Exception("Failed to update setting");
         }

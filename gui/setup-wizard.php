@@ -513,6 +513,12 @@ $currentUser = getCurrentUser();
                     alert('Failed to save setting: ' + (result.error || 'Unknown error'));
                     return;
                 }
+                
+                // If SSL was enabled, show a message about automatic restart
+                if (result.requires_restart && enabled && dashboardDomain) {
+                    const delay = result.restart_delay || 15;
+                    alert('✓ SSL enabled successfully!\n\n🔄 The dashboard container will restart automatically in a few seconds to apply SSL settings.\n\n⏱️ Please wait ' + delay + ' seconds, then access your dashboard via HTTPS:\n\nhttps://' + dashboardDomain + '\n\nThe page will continue to the next step now.');
+                }
             } catch (error) {
                 alert('Network error: ' + error.message);
                 return;
