@@ -230,7 +230,7 @@ $customWildcardDomain = getSetting($db, 'custom_wildcard_domain', '');
                                     <option value="8.0">PHP 8.0</option>
                                     <option value="7.4">PHP 7.4 (Legacy)</option>
                                 </select>
-                                <div class="form-text">Choose PHP version for your application</div>
+                                <div class="form-text">Choose PHP version for your application. Note: WordPress requires 8.3 or lower</div>
                             </div>
                         </div>
 

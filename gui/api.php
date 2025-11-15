@@ -663,7 +663,9 @@ function deployPHP($site, $config, $db) {
             exec("docker cp {$tempFile} {$containerName}:/var/www/html/index.php");
             
             // Set proper permissions
-            exec("docker exec {$containerName} chown www-data:www-data /var/www/html/index.php");
+            // PHP containers run as www-data, but we still need root to chown after docker cp
+            exec("docker exec -u root {$containerName} chown www-data:www-data /var/www/html/index.php");
+            exec("docker exec -u root {$containerName} chmod 644 /var/www/html/index.php");
             
             // Clean up temp file
             unlink($tempFile);
@@ -880,8 +882,8 @@ function deployLaravel($site, $config, $db) {
     // Wait a moment for container to be fully ready
     sleep(2);
     
-    // Check if index.php already exists
-    $checkCmd = "docker exec {$containerName} test -f /var/www/html/index.php 2>/dev/null";
+    // Check if index.php already exists in public directory (Laravel standard)
+    $checkCmd = "docker exec {$containerName} test -f /var/www/html/public/index.php 2>/dev/null";
     exec($checkCmd, $output, $returnCode);
     
     if ($returnCode !== 0) {
@@ -897,11 +899,16 @@ function deployLaravel($site, $config, $db) {
         $tempFile = tempnam(sys_get_temp_dir(), 'laravel_welcome_');
         file_put_contents($tempFile, $content);
         
-        // Copy to container
-        exec("docker cp {$tempFile} {$containerName}:/var/www/html/index.php");
+        // Create public directory if it doesn't exist
+        exec("docker exec -u root {$containerName} mkdir -p /var/www/html/public");
         
-        // Set proper permissions
-        exec("docker exec {$containerName} chown www-data:www-data /var/www/html/index.php");
+        // Copy to container (Laravel's public directory)
+        exec("docker cp {$tempFile} {$containerName}:/var/www/html/public/index.php");
+        
+        // Set proper permissions (Laravel uses www:www user, not www-data)
+        // Must run as root to change ownership
+        exec("docker exec -u root {$containerName} chown -R www:www /var/www/html/public");
+        exec("docker exec -u root {$containerName} chmod 644 /var/www/html/public/index.php");
         
         // Clean up temp file
         unlink($tempFile);
@@ -1177,6 +1184,12 @@ function createWordPressDockerCompose($site, $config, &$generatedPassword = null
     $containerName = $site["container_name"];
     $domain = $site["domain"];
     $phpVersion = $site["php_version"] ?? '8.3';
+    
+    // WordPress doesn't support PHP 8.4 yet, fallback to 8.3
+    if ($phpVersion === '8.4') {
+        $phpVersion = '8.3';
+    }
+    
     $includeWww = $site["include_www"] ?? 0;
     
     // Check database type (dedicated or custom)
@@ -1249,6 +1262,12 @@ services:
       - WORDPRESS_DB_USER={$dbUser}
       - WORDPRESS_DB_PASSWORD={$dbPassword}";
     }
+    
+    // Set WordPress URL based on SSL configuration
+    $protocol = ($site['ssl'] ?? false) ? 'https' : 'http';
+    $wordpressUrl = "{$protocol}://{$domain}";
+    $compose .= "
+      - WORDPRESS_URL={$wordpressUrl}";
     
     // Add Redis configuration if optimizations are enabled
     if ($wpOptimize) {

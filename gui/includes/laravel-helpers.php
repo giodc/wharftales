@@ -40,11 +40,10 @@ function fixLaravelPermissions($containerName) {
         $results[] = "✓ Set storage/cache permissions (775)";
     }
     
-    // Ensure public/index.php is readable
-    exec("docker exec {$containerName} chmod 644 /var/www/html/public/index.php", $output, $return);
-    if ($return === 0) {
-        $results[] = "✓ Ensured public/index.php is readable";
-    }
+    // Ensure index.php files are readable
+    exec("docker exec {$containerName} chmod 644 /var/www/html/index.php 2>/dev/null", $output, $return);
+    exec("docker exec {$containerName} chmod 644 /var/www/html/public/index.php 2>/dev/null", $output, $return);
+    $results[] = "✓ Ensured index.php files are readable";
     
     return [
         'success' => true,

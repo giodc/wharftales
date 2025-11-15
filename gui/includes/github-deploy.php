@@ -88,12 +88,13 @@ function deployFromGitHub($site, $containerName) {
             $message = 'Successfully cloned repository from GitHub';
         }
         
-        // Set proper permissions
-        exec("docker exec {$containerName} chown -R www-data:www-data /var/www/html");
+        // Set proper permissions (use correct user based on site type)
+        $siteType = $site['type'] ?? '';
+        $user = ($siteType === 'laravel') ? 'www:www' : 'www-data:www-data';
+        exec("docker exec {$containerName} chown -R {$user} /var/www/html");
         exec("docker exec {$containerName} chmod -R 755 /var/www/html");
         
         // Run Laravel build steps if it's a Laravel site
-        $siteType = $site['type'] ?? '';
         if ($siteType === 'laravel') {
             $buildResult = runLaravelBuild($containerName, $siteType);
             if (!$buildResult['success']) {
@@ -257,12 +258,13 @@ function forceDeployFromGitHub($site, $containerName) {
             $message = 'Successfully cloned repository from GitHub';
         }
         
-        // Set proper permissions
-        exec("docker exec {$containerName} chown -R www-data:www-data /var/www/html");
+        // Set proper permissions (use correct user based on site type)
+        $siteType = $site['type'] ?? '';
+        $user = ($siteType === 'laravel') ? 'www:www' : 'www-data:www-data';
+        exec("docker exec {$containerName} chown -R {$user} /var/www/html");
         exec("docker exec {$containerName} chmod -R 755 /var/www/html");
         
         // Run Laravel build steps if it's a Laravel site
-        $siteType = $site['type'] ?? '';
         if ($siteType === 'laravel') {
             $buildResult = runLaravelBuild($containerName, $siteType);
             if (!$buildResult['success']) {
@@ -539,8 +541,8 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
     $results[] = "✓ Required directories created";
     
     // 6. Set proper permissions (critical for Laravel)
-    // First set ownership to www-data
-    exec("docker exec {$containerName} chown -R www-data:www-data /var/www/html 2>&1", $chownOutput, $chownReturn);
+    // First set ownership to www:www (Laravel user)
+    exec("docker exec {$containerName} chown -R www:www /var/www/html 2>&1", $chownOutput, $chownReturn);
     if ($chownReturn !== 0) {
         $results[] = "⚠ Warning: Could not set ownership (may need root access)";
     }
@@ -595,7 +597,7 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
             
             // Set proper permissions on database file
             exec("docker exec {$containerName} sh -c 'chmod 664 {$dbDatabase} 2>&1'");
-            exec("docker exec {$containerName} sh -c 'chown www-data:www-data {$dbDatabase} 2>&1'");
+            exec("docker exec {$containerName} sh -c 'chown www:www {$dbDatabase} 2>&1'");
             $results[] = "✓ Database file permissions set";
         } else {
             $results[] = "⚠ Could not create database file: " . implode("\n", $touchOutput);

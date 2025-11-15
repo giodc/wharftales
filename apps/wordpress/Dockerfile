@@ -61,6 +61,9 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY start-wordpress.sh /usr/local/bin/start-wordpress.sh
 COPY create-wp-config.sh /usr/local/bin/create-wp-config.sh
 
+# Make scripts executable
+RUN chmod +x /usr/local/bin/start-wordpress.sh /usr/local/bin/create-wp-config.sh
+
 # Switch to non-root user
 USER www-data:www-data
 
