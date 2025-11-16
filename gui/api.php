@@ -4171,7 +4171,9 @@ function updateSettingHandler($db) {
                 $dashboardDomain = getSetting($db, 'dashboard_domain', '');
                 $dashboardSSL = getSetting($db, 'dashboard_ssl', '0');
                 
-                if (!empty($dashboardDomain)) {
+                // Only proceed if both domain AND SSL are configured
+                // (no need to restart container if SSL is not enabled)
+                if (!empty($dashboardDomain) && $dashboardSSL === '1') {
                     try {
                         updateDashboardTraefikConfig($dashboardDomain, $dashboardSSL === '1');
                         restartTraefik();
@@ -4187,13 +4189,23 @@ function updateSettingHandler($db) {
                             });
                         } else {
                             // Setup wizard in progress - flag for restart after wizard completes
+                            // Only set pending restart if SSL is actually enabled
                             setSetting($db, 'pending_container_restart', '1');
                         }
                         
-                        error_log("Dashboard Traefik configuration updated successfully");
+                        error_log("Dashboard Traefik configuration updated successfully (SSL enabled)");
                     } catch (Exception $e) {
                         error_log("Failed to update Traefik configuration: " . $e->getMessage());
                         // Don't fail the setting update if Traefik update fails
+                    }
+                } else if (!empty($dashboardDomain) && $dashboardSSL === '0') {
+                    // Domain set but SSL not enabled - just update Traefik config without restart
+                    try {
+                        updateDashboardTraefikConfig($dashboardDomain, false);
+                        restartTraefik();
+                        error_log("Dashboard Traefik configuration updated successfully (no SSL)");
+                    } catch (Exception $e) {
+                        error_log("Failed to update Traefik configuration: " . $e->getMessage());
                     }
                 }
             }
