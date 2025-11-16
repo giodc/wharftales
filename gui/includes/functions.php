@@ -1023,8 +1023,12 @@ function triggerUpdate($skipBackup = false) {
         return ['success' => false, 'error' => 'Upgrade script not found. Please ensure the file exists and is executable.'];
     }
     
-    // Make script executable
-    @chmod($upgradeScript, 0755);
+    // Check if script is executable
+    if (!is_executable($upgradeScript)) {
+        setSetting($db, 'update_in_progress', '0');
+        error_log("Upgrade script is not executable: $upgradeScript");
+        return ['success' => false, 'error' => 'Upgrade script is not executable. Run: chmod +x /opt/wharftales/gui/trigger-host-upgrade.sh'];
+    }
     
     // Execute upgrade script in background
     $command = 'bash ' . escapeshellarg($upgradeScript) . ' > /dev/null 2>&1 &';
