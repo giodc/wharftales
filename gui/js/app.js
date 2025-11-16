@@ -110,6 +110,11 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function showCreateModal() {
+    // Initialize SSL options based on current domain suffix selection
+    const domainSuffixSelect = document.querySelector("select[name=\"domain_suffix\"]");
+    if (domainSuffixSelect) {
+        toggleSSLOptions(domainSuffixSelect.value);
+    }
     createModal.show();
 }
 

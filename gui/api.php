@@ -4185,7 +4185,8 @@ function updateSettingHandler($db) {
                             // Setup already completed - restart immediately
                             register_shutdown_function(function() {
                                 sleep(1);
-                                exec('cd /opt/wharftales && docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
+                                // Stop and remove the container first, then recreate it
+                                exec('cd /opt/wharftales && docker-compose stop web-gui && docker-compose rm -f web-gui && docker-compose up -d web-gui > /dev/null 2>&1 &');
                             });
                         } else {
                             // Setup wizard in progress - flag for restart after wizard completes
@@ -4218,7 +4219,8 @@ function updateSettingHandler($db) {
                     setSetting($db, 'pending_container_restart', '0');
                     register_shutdown_function(function() {
                         sleep(2); // Wait a bit longer to ensure wizard completion page shows
-                        exec('cd /opt/wharftales && docker-compose up -d --force-recreate web-gui > /dev/null 2>&1 &');
+                        // Stop and remove the container first, then recreate it
+                        exec('cd /opt/wharftales && docker-compose stop web-gui && docker-compose rm -f web-gui && docker-compose up -d web-gui > /dev/null 2>&1 &');
                     });
                 }
             }
