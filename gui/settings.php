@@ -887,17 +887,26 @@ $updateInfo = checkForUpdates(false);
                     const logsResponse = await fetch('/api.php?action=get_update_logs');
                     const logsResult = await logsResponse.json();
                     
-                    if (logsResult.success && logsResult.logs) {
-                        if (logsResult.logs !== previousLogs) {
-                            logOutput.textContent = logsResult.logs;
+                    console.log('Update logs response:', logsResult);
+                    
+                    if (logsResult.success) {
+                        // Update logs even if empty (to clear "Initializing update..." message)
+                        const currentLogs = logsResult.logs || 'Waiting for update to start...';
+                        if (currentLogs !== previousLogs) {
+                            logOutput.textContent = currentLogs;
                             logOutput.scrollTop = logOutput.scrollHeight;
-                            previousLogs = logsResult.logs;
+                            previousLogs = currentLogs;
                         }
+                    } else {
+                        console.error('Failed to get logs:', logsResult.error);
+                        logOutput.textContent = 'Error getting logs: ' + (logsResult.error || 'Unknown error');
                     }
                     
                     // Check status
                     const statusResponse = await fetch('/api.php?action=check_update_status');
                     const statusResult = await statusResponse.json();
+                    
+                    console.log('Update status response:', statusResult);
                     
                     if (statusResult.success && statusResult.status.in_progress === false) {
                         // Update complete
@@ -924,6 +933,9 @@ $updateInfo = checkForUpdates(false);
                     }
                 } catch (error) {
                     console.error('Error polling update status:', error);
+                    if (logOutput) {
+                        logOutput.textContent = 'Error polling update: ' + error.message;
+                    }
                 }
             }, 2000); // Poll every 2 seconds
         }
