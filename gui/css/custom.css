@@ -403,7 +403,7 @@ a:hover {
 }
 
 .app-card:hover {
-    transform: translateY(-2px);
+   border-color: black;
 }
 
 .app-card .card-title {

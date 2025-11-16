@@ -89,25 +89,35 @@ if [ "$UPDATE_MODE" = true ]; then
     
     # Preserve user settings from old docker-compose.yml
     if [ -f "$BACKUP_DIR/docker-compose.yml" ]; then
-        echo "Preserving user email from old docker-compose.yml..."
+        echo "Preserving user settings from old docker-compose.yml..."
+        
         # Extract email from backup
         OLD_EMAIL=$(grep -oP 'letsencrypt\.acme\.email=\K[^"]+' "$BACKUP_DIR/docker-compose.yml" || echo "")
         if [ ! -z "$OLD_EMAIL" ]; then
-            echo "Updating email to: $OLD_EMAIL"
+            echo "  ✓ Restoring email: $OLD_EMAIL"
             sed -i "s/letsencrypt\.acme\.email=info@giodc\.com/letsencrypt.acme.email=$OLD_EMAIL/" docker-compose.yml
+        fi
+        
+        # Extract dashboard domain from backup
+        OLD_DOMAIN=$(grep -oP 'traefik\.http\.routers\.webgui\.rule=Host\(`\K[^`]+' "$BACKUP_DIR/docker-compose.yml" || echo "")
+        if [ ! -z "$OLD_DOMAIN" ]; then
+            echo "  ✓ Restoring dashboard domain: $OLD_DOMAIN"
+            sed -i 's#traefik\.http\.routers\.webgui\.rule=Host(`[^`]*`)#traefik.http.routers.webgui.rule=Host(`'"$OLD_DOMAIN"'`)#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-secure.rule=Host(`'"$OLD_DOMAIN"'`)#' docker-compose.yml || true
+            sed -i 's#traefik\.http\.routers\.webgui-alt\.rule=Host(`[^`]*`)#traefik.http.routers.webgui-alt.rule=Host(`'"$OLD_DOMAIN"'`)#' docker-compose.yml || true
         fi
     fi
 
     # Apply installer overrides for domain/email and standardize ports if provided
-    # DASHBOARD_DOMAIN: sets Host(`...`) for web-gui routers
-    # LE_EMAIL: updates Traefik ACME email
+    # DASHBOARD_DOMAIN: sets Host(`...`) for web-gui routers (only if explicitly provided)
+    # LE_EMAIL: updates Traefik ACME email (only if explicitly provided)
     if [ -f "docker-compose.yml" ]; then
         if [ -n "${LE_EMAIL:-}" ]; then
-            echo "Applying Let's Encrypt email from LE_EMAIL: $LE_EMAIL"
+            echo "Applying Let's Encrypt email override from LE_EMAIL: $LE_EMAIL"
             sed -i "s/--certificatesresolvers\\.letsencrypt\\.acme\\.email=[^\"]*/--certificatesresolvers.letsencrypt.acme.email=$LE_EMAIL/" docker-compose.yml
         fi
         if [ -n "${DASHBOARD_DOMAIN:-}" ]; then
-            echo "Applying dashboard domain from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
+            echo "Applying dashboard domain override from DASHBOARD_DOMAIN: $DASHBOARD_DOMAIN"
             # Replace dashboard domain in Traefik configuration
             sed -i 's#traefik\.http\.routers\.webgui\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' docker-compose.yml || true
             sed -i 's#traefik\.http\.routers\.webgui-secure\.rule=Host('\`'[^'\`']*'\`')#traefik.http.routers.webgui-secure.rule=Host('\`"$DASHBOARD_DOMAIN"\`')#' docker-compose.yml || true
