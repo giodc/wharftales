@@ -170,7 +170,7 @@ try {
         break;
     
     case "get_update_logs":
-        getUpdateLogs();
+        getUpdateLogsHandler($db);
         break;
     
     case "list_files":
@@ -350,6 +350,10 @@ try {
     
     case "check_update_status":
         checkUpdateStatusHandler($db);
+        break;
+    
+    case "reset_update_lock":
+        resetUpdateLockHandler($db);
         break;
     
     case "update_custom_database":
@@ -2371,31 +2375,6 @@ function getUpdateInformation() {
     }
 }
 
-function getUpdateLogs() {
-    global $db;
-    try {
-        $logFile = getSetting($db, 'last_update_log', '');
-        $logs = [];
-        
-        if ($logFile && file_exists($logFile)) {
-            $logs = file($logFile, FILE_IGNORE_NEW_LINES);
-        }
-        
-        ob_clean();
-        echo json_encode([
-            'success' => true,
-            'logs' => $logs
-        ]);
-        
-    } catch (Exception $e) {
-        ob_clean();
-        http_response_code(500);
-        echo json_encode([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
-    }
-}
 
 // ============================================
 // FILE MANAGER HANDLERS
@@ -4611,6 +4590,75 @@ function checkUpdateStatusHandler($db) {
         echo json_encode([
             'success' => true,
             'status' => $status
+        ]);
+        
+    } catch (Exception $e) {
+        ob_clean();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Reset update lock
+ */
+function resetUpdateLockHandler($db) {
+    try {
+        // Only admins can reset update lock
+        if (!isAdmin()) {
+            ob_clean();
+            http_response_code(403);
+            throw new Exception("Only administrators can reset update lock");
+        }
+        
+        // Reset the update in progress flag
+        setSetting($db, 'update_in_progress', '0');
+        setSetting($db, 'update_started_at', '');
+        
+        ob_clean();
+        echo json_encode([
+            'success' => true,
+            'message' => 'Update lock reset successfully'
+        ]);
+        
+    } catch (Exception $e) {
+        ob_clean();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Get update logs
+ */
+function getUpdateLogsHandler($db) {
+    try {
+        $logFile = getSetting($db, 'last_update_log', '');
+        $logs = '';
+        
+        if ($logFile && file_exists($logFile)) {
+            $logs = file_get_contents($logFile);
+        } else {
+            // Try to get the most recent log file
+            $logDir = '/opt/wharftales/logs';
+            if (is_dir($logDir)) {
+                $logFiles = glob($logDir . '/upgrade-*.log');
+                if (!empty($logFiles)) {
+                    // Sort by modification time, newest first
+                    usort($logFiles, function($a, $b) {
+                        return filemtime($b) - filemtime($a);
+                    });
+                    $logs = file_get_contents($logFiles[0]);
+                    $logFile = $logFiles[0];
+                }
+            }
+        }
+        
+        ob_clean();
+        echo json_encode([
+            'success' => true,
+            'logs' => $logs,
+            'log_file' => $logFile
         ]);
         
     } catch (Exception $e) {

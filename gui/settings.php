@@ -503,12 +503,18 @@ $updateInfo = checkForUpdates(false);
                                 </div>
                             </div>
 
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 flex-wrap">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-save me-2"></i>Save Update Settings
                                 </button>
                                 <button type="button" class="btn btn-secondary" onclick="checkForUpdates()">
                                     <i class="bi bi-arrow-clockwise me-2"></i>Check Now
+                                </button>
+                                <button type="button" class="btn btn-outline-info" onclick="showUpdateLogs()">
+                                    <i class="bi bi-file-text me-2"></i>View Logs
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="resetUpdateLock()">
+                                    <i class="bi bi-unlock me-2"></i>Reset Lock
                                 </button>
                             </div>
                         </form>
@@ -516,6 +522,20 @@ $updateInfo = checkForUpdates(false);
                         <?php if (isset($updateInfo['checked_at'])): ?>
                         <div class="mt-3 text-muted small">
                             <i class="bi bi-clock me-1"></i>Last checked: <?= htmlspecialchars($updateInfo['checked_at']) ?>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php 
+                        // Check if update is currently in progress
+                        $updateInProgress = getSetting($db, 'update_in_progress', '0');
+                        if ($updateInProgress === '1'): 
+                            $updateStartedAt = getSetting($db, 'update_started_at', '');
+                        ?>
+                        <div class="alert alert-warning mt-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Update in Progress</strong><br>
+                            Started: <?= htmlspecialchars($updateStartedAt) ?><br>
+                            <small>If the update is stuck, you can reset the lock using the button above.</small>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -798,37 +818,42 @@ $updateInfo = checkForUpdates(false);
             
             const infoSection = document.getElementById('updateInfoSection');
             infoSection.innerHTML = `
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary mb-3" role="status"></div>
-                    <h5>Installing Update...</h5>
-                    <p class="text-muted">This may take a minute...</p>
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-download me-2"></i>Update in Progress
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2">Installing update... Please wait.</p>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Update Log:</strong>
+                        </div>
+                        <pre id="updateLogOutput" class="bg-dark text-white p-3" style="max-height: 300px; overflow-y: auto; font-size: 12px;">Initializing update...</pre>
+                    </div>
                 </div>
             `;
             
             try {
-                const response = await fetch('/api.php?action=perform_update', {
-                    method: 'POST'
+                // Trigger the update
+                const response = await fetch('/api.php?action=trigger_update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({skip_backup: false})
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    infoSection.innerHTML = `
-                        <div class="alert alert-success">
-                            <i class="bi bi-check-circle me-2"></i>
-                            <strong>Update Successful!</strong><br>
-                            Updated to version ${result.version || 'latest'}<br>
-                            <small class="text-muted">Page will reload in 3 seconds...</small>
-                        </div>
-                    `;
-                    setTimeout(() => {
-                        location.reload();
-                    }, 3000);
+                    // Start polling for logs
+                    startUpdateLogPolling();
                 } else {
                     infoSection.innerHTML = `
                         <div class="alert alert-danger">
                             <i class="bi bi-exclamation-triangle me-2"></i>
-                            <strong>Update Failed!</strong><br>
+                            <strong>Update Failed to Start!</strong><br>
                             ${result.error || 'Unknown error'}
                         </div>
                         <button class="btn btn-secondary" onclick="resetUpdateSection()">
@@ -847,6 +872,115 @@ $updateInfo = checkForUpdates(false);
                         <i class="bi bi-arrow-left me-2"></i>Back
                     </button>
                 `;
+            }
+        }
+
+        let updateLogInterval = null;
+        
+        async function startUpdateLogPolling() {
+            const logOutput = document.getElementById('updateLogOutput');
+            let previousLogs = '';
+            
+            updateLogInterval = setInterval(async () => {
+                try {
+                    // Get logs
+                    const logsResponse = await fetch('/api.php?action=get_update_logs');
+                    const logsResult = await logsResponse.json();
+                    
+                    if (logsResult.success && logsResult.logs) {
+                        if (logsResult.logs !== previousLogs) {
+                            logOutput.textContent = logsResult.logs;
+                            logOutput.scrollTop = logOutput.scrollHeight;
+                            previousLogs = logsResult.logs;
+                        }
+                    }
+                    
+                    // Check status
+                    const statusResponse = await fetch('/api.php?action=check_update_status');
+                    const statusResult = await statusResponse.json();
+                    
+                    if (statusResult.success && statusResult.status.in_progress === false) {
+                        // Update complete
+                        clearInterval(updateLogInterval);
+                        
+                        const infoSection = document.getElementById('updateInfoSection');
+                        infoSection.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong>Update Complete!</strong><br>
+                                <small class="text-muted">Page will reload in 3 seconds...</small>
+                            </div>
+                            <div class="card">
+                                <div class="card-header">Update Log</div>
+                                <div class="card-body">
+                                    <pre class="bg-dark text-white p-3" style="max-height: 300px; overflow-y: auto; font-size: 12px;">${logsResult.logs || 'No logs available'}</pre>
+                                </div>
+                            </div>
+                        `;
+                        
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    }
+                } catch (error) {
+                    console.error('Error polling update status:', error);
+                }
+            }, 2000); // Poll every 2 seconds
+        }
+
+        async function resetUpdateLock() {
+            if (!confirm('Reset the update lock? This should only be done if an update is stuck.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api.php?action=reset_update_lock', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Update lock reset successfully!');
+                    location.reload();
+                } else {
+                    alert('Failed to reset lock: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function showUpdateLogs() {
+            try {
+                const response = await fetch('/api.php?action=get_update_logs');
+                const result = await response.json();
+                
+                const infoSection = document.getElementById('updateInfoSection');
+                
+                if (result.success) {
+                    infoSection.innerHTML = `
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-file-text me-2"></i>Update Logs
+                                <span class="badge bg-secondary float-end">${result.log_file ? result.log_file.split('/').pop() : 'No log file'}</span>
+                            </div>
+                            <div class="card-body">
+                                <pre class="bg-dark text-white p-3" style="max-height: 400px; overflow-y: auto; font-size: 12px;">${result.logs || 'No logs available'}</pre>
+                            </div>
+                            <div class="card-footer">
+                                <button class="btn btn-secondary btn-sm" onclick="resetUpdateSection()">
+                                    <i class="bi bi-arrow-left me-2"></i>Back
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    infoSection.style.display = 'block';
+                } else {
+                    alert('Failed to load logs: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
             }
         }
 
