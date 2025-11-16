@@ -1009,24 +1009,32 @@ function triggerUpdate($skipBackup = false) {
     setSetting($db, 'update_in_progress', '1');
     setSetting($db, 'update_started_at', date('Y-m-d H:i:s'));
     
-    // Build command
-    $command = '/opt/wharftales/scripts/upgrade.sh';
-    if ($skipBackup) {
-        $command .= ' "" true';
+    // Expected log file path
+    $logFile = '/opt/wharftales/logs/upgrade-' . date('Y-m-d-H-i-s') . '.log';
+    setSetting($db, 'last_update_log', $logFile);
+    
+    // Use the wrapper script that uses docker commands (Coolify-style)
+    // This script uses the mounted docker socket to run commands
+    $upgradeScript = '/var/www/html/trigger-host-upgrade.sh';
+    
+    if (!file_exists($upgradeScript)) {
+        setSetting($db, 'update_in_progress', '0');
+        error_log("Upgrade script not found at: $upgradeScript");
+        return ['success' => false, 'error' => 'Upgrade script not found. Please ensure the file exists and is executable.'];
     }
     
-    // Execute upgrade script in background
-    $logFile = '/opt/wharftales/logs/upgrade-' . date('Y-m-d-H-i-s') . '.log';
-    $command .= ' >> ' . escapeshellarg($logFile) . ' 2>&1 &';
+    // Make script executable
+    @chmod($upgradeScript, 0755);
     
+    // Execute upgrade script in background
+    $command = 'bash ' . escapeshellarg($upgradeScript) . ' > /dev/null 2>&1 &';
     exec($command, $output, $returnCode);
     
-    // Store log file path
-    setSetting($db, 'last_update_log', $logFile);
+    error_log("Update triggered using wrapper script. Log will be at: $logFile");
     
     return [
         'success' => true,
-        'message' => 'Update started in background',
+        'message' => 'Update started in background using Docker commands',
         'log_file' => $logFile
     ];
 }
