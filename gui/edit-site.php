@@ -2625,11 +2625,10 @@ QUEUE_CONNECTION=redis</code></pre>
             showAlert('info', 'Running migrations...');
             
             try {
-                const response = await fetch('/api.php', {
+                const response = await fetch('/api.php?action=execute_laravel_command', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        action: 'execute_laravel_command',
                         id: siteId,
                         command: 'migrate --force'
                     })
@@ -2669,11 +2668,10 @@ QUEUE_CONNECTION=redis</code></pre>
             document.getElementById('artisanOutputContent').textContent = 'Executing...';
             
             try {
-                const response = await fetch('/api.php', {
+                const response = await fetch('/api.php?action=execute_laravel_command', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        action: 'execute_laravel_command',
                         id: siteId,
                         command: command
                     })
@@ -2808,11 +2806,10 @@ QUEUE_CONNECTION=redis</code></pre>
             }
             
             try {
-                const response = await fetch('/api.php', {
+                const response = await fetch('/api.php?action=execute_shell_command', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        action: 'execute_shell_command',
                         site_id: siteId,
                         container: currentContainer,
                         command: cmd

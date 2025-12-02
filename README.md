@@ -24,7 +24,8 @@ WharfTales is an open-source platform that makes deploying WordPress, PHP, and L
 
 1. **Download and run the installer** (requires root privileges):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/giodc/wharftales/master/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/giodc/wharftales/master/install.sh |  bash
+
 ```
 
 2. **WharfTales starts automatically** after installation. To manage it manually:
