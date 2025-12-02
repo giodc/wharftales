@@ -62,6 +62,10 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/custom.css" rel="stylesheet">
+    <!-- Xterm.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <style>
         .sidebar {
           
@@ -218,6 +222,12 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                             <i class="bi bi-gear"></i>
                             <span>Settings</span>
                         </a>
+                        <?php if ($site['type'] === 'laravel'): ?>
+                        <a href="#laravel" class="sidebar-nav-item" data-section="laravel">
+                            <i class="bi bi-braces"></i>
+                            <span>Laravel</span>
+                        </a>
+                        <?php endif; ?>
                         <?php if ($site['type'] !== 'mariadb'): ?>
                         <a href="#domain" class="sidebar-nav-item" data-section="domain">
                             <i class="bi bi-globe"></i>
@@ -237,6 +247,10 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                         <a href="#logs" class="sidebar-nav-item" data-section="logs">
                             <i class="bi bi-terminal"></i>
                             <span>Logs</span>
+                        </a>
+                        <a href="#terminal" class="sidebar-nav-item" data-section="terminal">
+                            <i class="bi bi-terminal-fill"></i>
+                            <span>Web Terminal</span>
                         </a>
                         <?php if (($hasDedicatedDb && $dbContainerExists) || $site['type'] === 'mariadb'): ?>
                         <a href="#database" class="sidebar-nav-item" data-section="database">
@@ -849,6 +863,82 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                                 Be careful when editing or deleting files. Always backup before making changes.
                             </small>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Laravel Management Section -->
+            <?php if ($site['type'] === 'laravel'): ?>
+            <div id="laravel-section" class="content-section" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-braces me-2"></i>Laravel Management
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-title">Common Actions</h6>
+                        <div class="row mb-4">
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-primary w-100" onclick="runLaravelBuild()">
+                                    <i class="bi bi-hammer me-2"></i>Build (npm & composer)
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-info w-100" onclick="runLaravelMigration()">
+                                    <i class="bi bi-database-fill-up me-2"></i>Run Migrations
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-warning w-100" onclick="fixLaravelPermissions()">
+                                    <i class="bi bi-shield-lock me-2"></i>Fix Permissions
+                                </button>
+                            </div>
+                        </div>
+
+                        <h6 class="card-title">Artisan Console</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Execute Artisan Command</label>
+                            <div class="input-group">
+                                <span class="input-group-text">php artisan</span>
+                                <input type="text" class="form-control" id="artisanCommand" placeholder="migrate:status">
+                                <button class="btn btn-secondary" onclick="executeLaravelCommand()">
+                                    <i class="bi bi-play-fill"></i> Run
+                                </button>
+                            </div>
+                            <div class="form-text">Enter command without 'php artisan' prefix.</div>
+                        </div>
+
+                        <div id="artisanOutput" style="display: none;">
+                            <label class="form-label">Output</label>
+                            <pre class="bg-dark text-light p-3 rounded" id="artisanOutputContent" style="max-height: 300px; overflow-y: auto;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Web Terminal Section -->
+            <div id="terminal-section" class="content-section" style="display: none;">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-terminal-fill me-2"></i>Web Terminal
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <select class="form-select form-select-sm me-2" id="terminalContainerSelect" style="width: 200px;">
+                                <option value="<?= $site['container_name'] ?>"><?= $site['container_name'] ?> (App)</option>
+                                <!-- Other containers loaded via JS -->
+                            </select>
+                            <button class="btn btn-sm btn-success" onclick="connectTerminal()">
+                                <i class="bi bi-plug me-1"></i>Connect
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="terminal-container" style="height: 500px; background-color: #000;"></div>
+                    </div>
+                    <div class="card-footer text-muted small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        This is a non-interactive web console. Commands are executed in the container and output is returned.
                     </div>
                 </div>
             </div>
@@ -2521,10 +2611,228 @@ QUEUE_CONNECTION=redis</code></pre>
                     showAlert('danger', 'Error loading files: ' + result.error);
                 }
             } catch (error) {
-                console.error('Error loading files:', error);
+                console.error('File load error:', error);
                 fileList.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">Network error: ${error.message}</td></tr>`;
+            }
+        }
+
+        // Laravel Functions
+        async function runLaravelMigration() {
+            if (!confirm('Run Laravel migrations?\n\nThis will execute "php artisan migrate --force". Ensure your database is ready.')) {
+                return;
+            }
+            
+            showAlert('info', 'Running migrations...');
+            
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'execute_laravel_command',
+                        id: siteId,
+                        command: 'migrate --force'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('success', 'Migrations completed!');
+                    document.getElementById('artisanOutput').style.display = 'block';
+                    document.getElementById('artisanOutputContent').textContent = result.output;
+                } else {
+                    showAlert('danger', 'Migration failed: ' + result.error);
+                    if (result.output) {
+                        document.getElementById('artisanOutput').style.display = 'block';
+                        document.getElementById('artisanOutputContent').textContent = result.output;
+                    }
+                }
+            } catch (error) {
                 showAlert('danger', 'Network error: ' + error.message);
             }
+        }
+
+        async function executeLaravelCommand() {
+            const command = document.getElementById('artisanCommand').value.trim();
+            if (!command) {
+                alert('Please enter a command');
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            btn.disabled = true;
+            
+            document.getElementById('artisanOutput').style.display = 'block';
+            document.getElementById('artisanOutputContent').textContent = 'Executing...';
+            
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'execute_laravel_command',
+                        id: siteId,
+                        command: command
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('artisanOutputContent').textContent = result.output || 'Command executed successfully (no output)';
+                } else {
+                    document.getElementById('artisanOutputContent').textContent = 'Error: ' + (result.error || 'Unknown error') + '\n\nOutput:\n' + (result.output || '');
+                }
+            } catch (error) {
+                document.getElementById('artisanOutputContent').textContent = 'Network error: ' + error.message;
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Terminal Functions
+        let term;
+        let fitAddon;
+        let currentContainer = containerName;
+        
+        function initTerminal() {
+            if (term) return;
+            
+            term = new Terminal({
+                cursorBlink: true,
+                theme: {
+                    background: '#000000',
+                    foreground: '#ffffff'
+                },
+                fontSize: 14,
+                fontFamily: 'Menlo, Monaco, "Courier New", monospace'
+            });
+            
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            
+            term.open(document.getElementById('terminal-container'));
+            fitAddon.fit();
+            
+            term.write('Welcome to WharfTales Web Console\r\n');
+            term.write('Select a container and click Connect to start.\r\n\r\n');
+            
+            window.addEventListener('resize', () => fitAddon.fit());
+            loadTerminalContainers();
+        }
+        
+        async function loadTerminalContainers() {
+            try {
+                const response = await fetch('/api.php?action=get_site_containers&id=' + siteId);
+                const result = await response.json();
+                
+                if (result.success && result.containers) {
+                    const select = document.getElementById('terminalContainerSelect');
+                    select.innerHTML = '';
+                    
+                    result.containers.forEach(c => {
+                        const option = document.createElement('option');
+                        option.value = c.name;
+                        option.text = c.name + ' (' + c.image.split('/').pop().split(':')[0] + ')';
+                        if (c.name === containerName) option.selected = true;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load containers for terminal', error);
+            }
+        }
+        
+        let commandBuffer = '';
+        
+        function connectTerminal() {
+            if (!term) initTerminal();
+            
+            const container = document.getElementById('terminalContainerSelect').value;
+            currentContainer = container;
+            
+            term.reset();
+            term.write(`Connecting to ${container}...\r\n`);
+            term.write('Type a command and press Enter.\r\n');
+            term.write('$ ');
+            
+            setupTerminalInput();
+        }
+        
+        // Setup terminal input handler once
+        document.addEventListener('DOMContentLoaded', () => {
+             const terminalTab = document.querySelector('[data-section="terminal"]');
+             if (terminalTab) {
+                 terminalTab.addEventListener('click', () => {
+                     setTimeout(() => {
+                         initTerminal();
+                     }, 100);
+                 });
+             }
+        });
+        
+        function setupTerminalInput() {
+            if (term._inputSetup) return;
+            term._inputSetup = true;
+            
+            term.onData(e => {
+                switch (e) {
+                    case '\r': // Enter
+                        term.write('\r\n');
+                        executeShellCommand(commandBuffer);
+                        commandBuffer = '';
+                        break;
+                    case '\u007F': // Backspace (DEL)
+                        if (commandBuffer.length > 0) {
+                            term.write('\b \b');
+                            commandBuffer = commandBuffer.slice(0, -1);
+                        }
+                        break;
+                    default:
+                        if (e >= ' ' && e <= '~') {
+                            commandBuffer += e;
+                            term.write(e);
+                        }
+                }
+            });
+        }
+        
+        async function executeShellCommand(cmd) {
+            if (!cmd) {
+                term.write('$ ');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'execute_shell_command',
+                        site_id: siteId,
+                        container: currentContainer,
+                        command: cmd
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const output = (result.output || '').replace(/\n/g, '\r\n');
+                    term.write(output);
+                    if (output && !output.endsWith('\n')) term.write('\r\n');
+                } else {
+                    term.write(`Error: ${result.error}\r\n`);
+                }
+            } catch (error) {
+                term.write(`Network error: ${error.message}\r\n`);
+            }
+            
+            term.write('$ ');
         }
         
         function displayFiles(files) {

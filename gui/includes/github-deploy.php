@@ -635,7 +635,7 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
         if ($npmReturn !== 0) {
             // Install Node.js and npm
             $results[] = "Installing Node.js and npm...";
-            exec("docker exec {$containerName} sh -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs 2>&1'");
+            exec("docker exec -u root {$containerName} sh -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs 2>&1'");
         }
         
         // Run npm install

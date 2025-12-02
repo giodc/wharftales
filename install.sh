@@ -404,6 +404,31 @@ sleep 5
 
 echo "Installing MySQL extensions..."
 docker exec -u root wharftales_gui docker-php-ext-install pdo_mysql mysqli 2>/dev/null || echo "MySQL extensions already installed"
+
+# Install Composer and Node.js/NPM in the GUI container
+echo "Installing dependencies in GUI container..."
+docker exec -u root wharftales_gui bash -c "apt-get update && apt-get install -y unzip zip curl gnupg" 2>/dev/null || true
+
+# Check/Install Composer
+echo "Checking Composer..."
+docker exec wharftales_gui which composer >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "Installing Composer..."
+    docker exec -u root wharftales_gui bash -c "curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer" || echo "Composer install failed"
+else
+    echo "Composer already installed"
+fi
+
+# Check/Install NPM
+echo "Checking Node.js/NPM..."
+docker exec wharftales_gui which npm >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "Installing Node.js and NPM..."
+    docker exec -u root wharftales_gui bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs" || echo "NPM install failed"
+else
+    echo "Node.js/NPM already installed"
+fi
+
 docker exec wharftales_gui apache2ctl restart 2>/dev/null || echo "Apache restart skipped"
 
 echo "Fixing data directory permissions..."

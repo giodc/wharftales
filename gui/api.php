@@ -253,6 +253,14 @@ try {
         executeDockerCommandAPI();
         break;
     
+    case "execute_laravel_command":
+        executeLaravelCommandAPI($db);
+        break;
+
+    case "execute_shell_command":
+        executeShellCommandAPI($db);
+        break;
+    
     case "get_container_logs":
         getContainerLogs();
         break;
@@ -4880,6 +4888,114 @@ function checkMariaDBPortConflict($db, $port, $excludeSiteId = null) {
         return $result ?: false;
     } catch (Exception $e) {
         return false;
+    }
+}
+
+/**
+ * Execute arbitrary Laravel Artisan commands
+ */
+function executeLaravelCommandAPI($db) {
+    try {
+        $input = json_decode(file_get_contents("php://input"), true);
+        
+        if (!isset($input['id']) || !isset($input['command'])) {
+            throw new Exception("Site ID and command are required");
+        }
+        
+        $siteId = $input['id'];
+        $artisanCommand = $input['command'];
+        
+        // Check permission
+        if (!canAccessSite($_SESSION['user_id'], $siteId, 'manage')) {
+            throw new Exception("Permission denied");
+        }
+        
+        $site = getSiteById($db, $siteId);
+        if (!$site || $site['type'] !== 'laravel') {
+            throw new Exception("Invalid site or not a Laravel application");
+        }
+        
+        $containerName = $site['container_name'];
+        
+        // Basic sanitization - allow alphanumeric, dashes, colons, spaces, dots, equals, slashes
+        if (!preg_match('/^[a-zA-Z0-9\-\:\_\s\.\=\/]+$/', $artisanCommand)) {
+            throw new Exception("Invalid command characters");
+        }
+        
+        $cmd = "docker exec -w /var/www/html " . escapeshellarg($containerName) . " php artisan " . $artisanCommand . " 2>&1";
+        
+        exec($cmd, $output, $returnCode);
+        
+        echo json_encode([
+            "success" => $returnCode === 0,
+            "message" => $returnCode === 0 ? "Command executed successfully" : "Command failed",
+            "output" => implode("\n", $output)
+        ]);
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode([
+            "success" => false,
+            "error" => $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Execute arbitrary shell commands for Web Terminal
+ */
+function executeShellCommandAPI($db) {
+    try {
+        $input = json_decode(file_get_contents("php://input"), true);
+        
+        if (!isset($input['container']) || !isset($input['command'])) {
+            throw new Exception("Container and command are required");
+        }
+        
+        $container = $input['container'];
+        $command = $input['command'];
+        $siteId = $input['site_id'] ?? null;
+        
+        if (!$siteId) {
+             throw new Exception("Site ID is required for security verification");
+        }
+        
+        if (!canAccessSite($_SESSION['user_id'], $siteId, 'manage')) {
+             throw new Exception("Permission denied");
+        }
+        
+        // Verify container belongs to site
+        $site = getSiteById($db, $siteId);
+        if (!$site) throw new Exception("Site not found");
+        
+        if (strpos($container, $site['container_name']) !== 0) {
+             throw new Exception("Container does not belong to the specified site");
+        }
+        
+        // Execute command in the container
+        // We use sh -c to allow pipes etc.
+        $cmd = "docker exec -w /var/www/html " . escapeshellarg($container) . " sh -c " . escapeshellarg($command) . " 2>&1";
+        
+        exec($cmd, $output, $returnCode);
+        
+        $outputStr = implode("\n", $output);
+        if (strlen($outputStr) > 50000) {
+            $outputStr = substr($outputStr, 0, 50000) . "\n... [Output truncated]";
+        }
+        
+        echo json_encode([
+            "success" => true,
+            "exit_code" => $returnCode,
+            "output" => $outputStr,
+            "cwd" => "/var/www/html" // Mock CWD, tracking real CWD in stateless HTTP is hard without passing it back and forth
+        ]);
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode([
+            "success" => false,
+            "error" => $e->getMessage()
+        ]);
     }
 }
 

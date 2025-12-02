@@ -40,3 +40,7 @@ apps/*/sites/*/docker-compose.yml
 .DS_Store?
 ._*
 .Spotlight-V100
+docker-compose.yml.backup-20251109-194057
+docker-compose.yml.backup-before-traefik-fix
+docker-compose.yml.corrupted-backup
+TRAEFIK-VERSION-FIX.md
