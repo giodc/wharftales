@@ -7,6 +7,11 @@ function initDatabase() {
     if (!is_writable($dir)) { @chmod($dir, 0775); }
     $pdo = new PDO('sqlite:' . $dbPath);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    // Enable WAL mode for better concurrency
+    $pdo->exec('PRAGMA journal_mode = WAL;');
+    $pdo->exec('PRAGMA synchronous = NORMAL;');
+    $pdo->exec('PRAGMA busy_timeout = 5000;');
 
     // Create tables if they don't exist
     $pdo->exec("CREATE TABLE IF NOT EXISTS sites (

@@ -32,6 +32,11 @@ function initAuthDatabase() {
     $db = new PDO('sqlite:' . $dbPath);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
+    // Enable WAL mode for better concurrency
+    $db->exec('PRAGMA journal_mode = WAL;');
+    $db->exec('PRAGMA synchronous = NORMAL;');
+    $db->exec('PRAGMA busy_timeout = 5000;');
+    
     // Create users table if not exists
     $db->exec("CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -66,6 +66,7 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-webgl@0.16.0/lib/xterm-addon-webgl.js"></script>
     <style>
         .sidebar {
           
@@ -870,46 +871,159 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
             <!-- Laravel Management Section -->
             <?php if ($site['type'] === 'laravel'): ?>
             <div id="laravel-section" class="content-section" style="display: none;">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-braces me-2"></i>Laravel Management
+                <div class="row">
+                    <!-- Cache & Config -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">Cache & Config</div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-primary" onclick="executeLaravelCommand('cache:clear')">
+                                        <i class="bi bi-trash me-2"></i>cache:clear
+                                    </button>
+                                    <button class="btn btn-outline-primary" onclick="executeLaravelCommand('config:clear')">
+                                        <i class="bi bi-eraser me-2"></i>config:clear
+                                    </button>
+                                    <button class="btn btn-outline-primary" onclick="executeLaravelCommand('config:cache')">
+                                        <i class="bi bi-archive me-2"></i>config:cache
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <h6 class="card-title">Common Actions</h6>
-                        <div class="row mb-4">
-                            <div class="col-md-4 mb-2">
-                                <button class="btn btn-primary w-100" onclick="runLaravelBuild()">
-                                    <i class="bi bi-hammer me-2"></i>Build (npm & composer)
-                                </button>
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <button class="btn btn-info w-100" onclick="runLaravelMigration()">
-                                    <i class="bi bi-database-fill-up me-2"></i>Run Migrations
-                                </button>
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <button class="btn btn-warning w-100" onclick="fixLaravelPermissions()">
-                                    <i class="bi bi-shield-lock me-2"></i>Fix Permissions
-                                </button>
+
+                    <!-- Database -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">Database</div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-info" onclick="executeLaravelCommand('migrate:status')">
+                                        <i class="bi bi-info-circle me-2"></i>migrate:status
+                                    </button>
+                                    <button class="btn btn-outline-warning" onclick="executeLaravelCommand('migrate')">
+                                        <i class="bi bi-database-fill-up me-2"></i>migrate
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <h6 class="card-title">Artisan Console</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Execute Artisan Command</label>
-                            <div class="input-group">
-                                <span class="input-group-text">php artisan</span>
-                                <input type="text" class="form-control" id="artisanCommand" placeholder="migrate:status">
-                                <button class="btn btn-secondary" onclick="executeLaravelCommand()">
-                                    <i class="bi bi-play-fill"></i> Run
+                    <!-- Storage & Views -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">Storage & Views</div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-success" onclick="executeLaravelCommand('storage:link')">
+                                        <i class="bi bi-link-45deg me-2"></i>storage:link
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="executeLaravelCommand('view:clear')">
+                                        <i class="bi bi-eye-slash me-2"></i>view:clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- General & Maintenance -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">General</div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-danger" onclick="executeLaravelCommand('down')">
+                                        <i class="bi bi-cone-striped me-2"></i>down (Maintenance Mode)
+                                    </button>
+                                    <button class="btn btn-outline-success" onclick="executeLaravelCommand('up')">
+                                        <i class="bi bi-check-circle me-2"></i>up (Live)
+                                    </button>
+                                    <button class="btn btn-warning" onclick="fixLaravelPermissions()">
+                                        <i class="bi bi-shield-lock me-2"></i>Fix Permissions
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dependencies & Build -->
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header">Dependencies & Build</div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 mb-2">
+                                        <button class="btn btn-success w-100" onclick="executeShellCommand('composer install --no-interaction --optimize-autoloader --verbose')">
+                                            <i class="bi bi-box-seam me-2"></i>Composer Install
+                                        </button>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <button class="btn btn-info w-100" onclick="executeShellCommand('npm install --loglevel=info')">
+                                            <i class="bi bi-download me-2"></i>Npm Install
+                                        </button>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <button class="btn btn-primary w-100" onclick="executeShellCommand('npm run build -- --logLevel info')">
+                                            <i class="bi bi-hammer me-2"></i>Npm Run Build
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Environment Editor -->
+                     <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Environment Configuration</span>
+                                <button class="btn btn-sm btn-primary" onclick="openEnvEditor()">
+                                    <i class="bi bi-pencil-square me-2"></i>Edit .env
                                 </button>
                             </div>
-                            <div class="form-text">Enter command without 'php artisan' prefix.</div>
+                            <div class="card-body">
+                                <div class="alert alert-secondary mb-0">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Manage your application's environment variables directly. 
+                                    <strong>Note:</strong> Changes may require a config:cache clearing.
+                                </div>
+                            </div>
                         </div>
+                    </div>
 
-                        <div id="artisanOutput" style="display: none;">
-                            <label class="form-label">Output</label>
-                            <pre class="bg-dark text-light p-3 rounded" id="artisanOutputContent" style="max-height: 300px; overflow-y: auto;"></pre>
+                    <!-- Artisan Console -->
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header">Artisan Console</div>
+                            <div class="card-body">
+                                <div class="mb-0">
+                                    <label class="form-label">Execute Artisan Command</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">php artisan</span>
+                                        <input type="text" class="form-control" id="artisanCommand" placeholder="migrate:status" onkeypress="handleArtisanEnter(event)">
+                                        <button class="btn btn-secondary" onclick="executeLaravelCommand()">
+                                            <i class="bi bi-play-fill"></i> Run
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Enter command without 'php artisan' prefix.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Log -->
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-terminal-split me-2"></i>Activity Log</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearLaravelLog()">
+                                    <i class="bi bi-eraser me-1"></i>Clear
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="laravelLogOutput" class="bg-dark text-light p-3" style="height: 400px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; white-space: pre-wrap;">
+<span class="text-muted">Ready for actions...</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -946,14 +1060,16 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
             <!-- Logs Section -->
             <div id="logs-section" class="content-section" style="display: none;">
                 <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-terminal me-2"></i>Container Logs
-                    </div>
-                    <div class="card-body">
-                        <pre id="logOutput" style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 4px; max-height: 500px; overflow-y: auto;">Loading logs...</pre>
-                        <button class="btn btn-secondary mt-2" onclick="refreshLogs()">
-                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh Logs
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-terminal me-2"></i>Container Logs
+                        </div>
+                        <button class="btn btn-sm btn-secondary" onclick="refreshLogs()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
                         </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="log-terminal-container" style="height: 500px; background-color: #1e1e1e;"></div>
                     </div>
                 </div>
             </div>
@@ -1624,6 +1740,38 @@ QUEUE_CONNECTION=redis</code></pre>
         </div>
     </div>
 
+    <!-- Environment Editor Modal -->
+    <div class="modal fade" id="envEditorModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i>Edit Environment Configuration (.env)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> Be careful when editing this file. Invalid syntax can break your application.
+                        Sensitive information like passwords and keys are stored here.
+                    </div>
+                    <div class="mb-3">
+                        <textarea id="envEditorContent" class="form-control" rows="20" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 14px; background-color: #1e1e1e; color: #d4d4d4;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="saveEnvFile()">
+                        <i class="bi bi-save me-2"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <?php include 'includes/modals.php'; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2078,23 +2226,86 @@ QUEUE_CONNECTION=redis</code></pre>
 
         function viewLogs() {
             document.querySelector('[data-section="logs"]').click();
-            refreshLogs();
+            // Allow tab switch animation to complete
+            setTimeout(refreshLogs, 100);
         }
 
-        async function refreshLogs() {
-            document.getElementById('logOutput').textContent = 'Loading logs...';
+        let logTerm;
+        let logFitAddon;
+
+        function initLogTerminal() {
+            if (logTerm) return;
+            
+            logTerm = new Terminal({
+                cursorBlink: false,
+                disableStdin: true, // Read-only
+                theme: {
+                    background: '#1e1e1e',
+                    foreground: '#d4d4d4',
+                    selectionBackground: 'rgba(255, 255, 255, 0.3)'
+                },
+                fontSize: 13,
+                lineHeight: 1.2,
+                fontFamily: 'Consolas, "Courier New", monospace',
+                convertEol: true // Treat \n as \r\n
+            });
+            
+            logFitAddon = new FitAddon.FitAddon();
+            logTerm.loadAddon(logFitAddon);
             
             try {
-                const response = await fetch('/api.php?action=get_logs&id=' + siteId + '&lines=100');
+                if (window.WebglAddon) {
+                    const webglAddon = new window.WebglAddon.WebglAddon();
+                    webglAddon.onContextLoss(e => webglAddon.dispose());
+                    logTerm.loadAddon(webglAddon);
+                }
+            } catch (e) {}
+            
+            logTerm.open(document.getElementById('log-terminal-container'));
+            logFitAddon.fit();
+            
+            window.addEventListener('resize', () => logFitAddon.fit());
+        }
+        
+        // Initialize log terminal when tab is shown
+        document.addEventListener('DOMContentLoaded', () => {
+             const logsTab = document.querySelector('[data-section="logs"]');
+             if (logsTab) {
+                 logsTab.addEventListener('click', () => {
+                     setTimeout(() => {
+                         initLogTerminal();
+                         if (!logTerm.element.textContent) { // If empty, load logs
+                             refreshLogs();
+                         } else {
+                             logFitAddon.fit();
+                         }
+                     }, 100);
+                 });
+             }
+        });
+
+        async function refreshLogs() {
+            if (!logTerm) initLogTerminal();
+            
+            logTerm.clear();
+            logTerm.write('Loading logs...\r\n');
+            
+            try {
+                const response = await fetch('/api.php?action=get_logs&id=' + siteId + '&lines=500');
                 const result = await response.json();
                 
                 if (result.success) {
-                    document.getElementById('logOutput').textContent = result.logs || 'No logs available';
+                    logTerm.clear();
+                    if (result.logs) {
+                        logTerm.write(result.logs);
+                    } else {
+                        logTerm.write('No logs available.');
+                    }
                 } else {
-                    document.getElementById('logOutput').textContent = 'Error loading logs: ' + result.error;
+                    logTerm.write('\x1b[31mError loading logs: ' + (result.error || 'Unknown error') + '\x1b[0m');
                 }
             } catch (error) {
-                document.getElementById('logOutput').textContent = 'Network error: ' + error.message;
+                logTerm.write('\x1b[31mNetwork error: ' + error.message + '\x1b[0m');
             }
         }
 
@@ -2396,6 +2607,232 @@ QUEUE_CONNECTION=redis</code></pre>
             }
         }
         
+        function logLaravelActivity(message, type = 'info') {
+            const logOutput = document.getElementById('laravelLogOutput');
+            if (!logOutput) return;
+            
+            // Clear "Ready for actions..." if present
+            if (logOutput.querySelector('.text-muted') && logOutput.children.length === 1) {
+                logOutput.innerHTML = '';
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            let colorClass = 'text-light';
+            
+            if (type === 'error' || type === 'danger') colorClass = 'text-danger';
+            else if (type === 'success') colorClass = 'text-success';
+            else if (type === 'warning') colorClass = 'text-warning';
+            else if (type === 'command') colorClass = 'text-info';
+            
+            const entry = document.createElement('div');
+            entry.className = `mb-1 ${colorClass}`;
+            
+            // Format message to handle newlines nicely
+            const formattedMessage = message.replace(/\n/g, '<br>');
+            
+            entry.innerHTML = `<span class="text-muted small me-2">[${timestamp}]</span> ${formattedMessage}`;
+            
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        function clearLaravelLog() {
+            const logOutput = document.getElementById('laravelLogOutput');
+            if (logOutput) {
+                logOutput.innerHTML = '<span class="text-muted">Ready for actions...</span>';
+            }
+        }
+        
+        function handleArtisanEnter(e) {
+            if (e.key === 'Enter') {
+                executeLaravelCommand();
+            }
+        }
+        
+        async function openEnvEditor() {
+            const modal = new bootstrap.Modal(document.getElementById('envEditorModal'));
+            document.getElementById('envEditorContent').value = 'Loading .env file...';
+            modal.show();
+            
+            try {
+                const response = await fetch(`/api.php?action=read_file&id=${siteId}&path=/var/www/html/.env`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('envEditorContent').value = result.content;
+                } else {
+                    document.getElementById('envEditorContent').value = '# Error loading .env file: ' + (result.error || 'Unknown error');
+                    // If file doesn't exist, maybe show .env.example?
+                    if (result.error && result.error.includes('No such file')) {
+                         try {
+                             const exResponse = await fetch(`/api.php?action=read_file&id=${siteId}&path=/var/www/html/.env.example`);
+                             const exResult = await exResponse.json();
+                             if (exResult.success) {
+                                 document.getElementById('envEditorContent').value = exResult.content;
+                                 showAlert('info', '.env not found, loaded .env.example instead.');
+                             }
+                         } catch (e) {}
+                    }
+                }
+            } catch (error) {
+                document.getElementById('envEditorContent').value = '# Network error: ' + error.message;
+            }
+        }
+        
+        async function saveEnvFile() {
+            const content = document.getElementById('envEditorContent').value;
+            
+            if (!confirm('Are you sure you want to save changes to .env? This may affect your application.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api.php?action=save_file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: siteId,
+                        path: '/var/www/html/.env',
+                        content: content
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('success', '.env file saved successfully!');
+                    bootstrap.Modal.getInstance(document.getElementById('envEditorModal')).hide();
+                    
+                    // Ask if user wants to clear config cache
+                    if (confirm('.env saved. Do you want to run config:cache to apply changes?')) {
+                        executeLaravelCommand('config:cache');
+                    }
+                } else {
+                    alert('Failed to save .env: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        }
+
+        async function executeLaravelCommand(cmd) {
+            console.log('executeLaravelCommand called with type:', typeof cmd, 'value:', cmd);
+            
+            // If cmd is an object (event) or not a string, treat as empty unless it's a string
+            if (typeof cmd !== 'string') {
+                cmd = '';
+            }
+            
+            let isCustom = false;
+            if (!cmd) {
+                const input = document.getElementById('artisanCommand');
+                if (input) {
+                    cmd = input.value.trim();
+                    isCustom = true;
+                }
+            }
+            
+            if (!cmd) {
+                alert('Please enter a command');
+                return;
+            }
+            
+            logLaravelActivity(`> php artisan ${cmd}`, 'command');
+            
+            try {
+                const response = await fetch('/api.php?action=execute_laravel_command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: siteId,
+                        command: cmd
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    logLaravelActivity(result.output || 'Command executed successfully', 'success');
+                    if (isCustom) {
+                        const input = document.getElementById('artisanCommand');
+                        if (input) input.value = '';
+                    }
+                } else {
+                    logLaravelActivity(`Error: ${result.error || 'Unknown error'}\n${result.output || ''}`, 'error');
+                }
+            } catch (error) {
+                logLaravelActivity(`Network error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function fixLaravelPermissions() {
+            if (!confirm('This will reset permissions for the Laravel application. Continue?')) {
+                return;
+            }
+            
+            logLaravelActivity('> Fixing permissions...', 'command');
+            
+            try {
+                const response = await fetch(`/api.php?action=fix_laravel_permissions&id=${siteId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    logLaravelActivity('Permissions fixed successfully!', 'success');
+                    if (result.details) logLaravelActivity(result.details, 'info');
+                } else {
+                    logLaravelActivity(`Failed to fix permissions: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                logLaravelActivity(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function executeShellCommand(cmd) {
+             if (!confirm(`Run command: ${cmd}?`)) return;
+             
+             logLaravelActivity(`> ${cmd}`, 'command');
+             logLaravelActivity('... Running (this may take a while) ...', 'info');
+             
+             try {
+                const response = await fetch('/api.php?action=execute_shell_command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        site_id: siteId,
+                        container: containerName,
+                        command: cmd,
+                        cwd: '/var/www/html'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    logLaravelActivity(`Error parsing server response: ${text.substring(0, 200)}...`, 'error');
+                    return;
+                }
+                
+                if (result.success) {
+                    const output = result.output ? result.output.trim() : 'Command executed (no output)';
+                    if (result.exit_code === 0) {
+                        logLaravelActivity(output, 'success');
+                    } else {
+                        logLaravelActivity(`Exited with code ${result.exit_code}:\n${output}`, 'error');
+                    }
+                } else {
+                    logLaravelActivity(`Error: ${result.error || 'Unknown error'}`, 'error');
+                }
+             } catch (error) {
+                 logLaravelActivity(`Network error: ${error.message}`, 'error');
+             }
+        }
+
         async function flushRedis() {
             if (!confirm('Are you sure you want to flush the Redis cache? This will clear all cached data.')) {
                 return;
@@ -2652,46 +3089,6 @@ QUEUE_CONNECTION=redis</code></pre>
             }
         }
 
-        async function executeLaravelCommand() {
-            const command = document.getElementById('artisanCommand').value.trim();
-            if (!command) {
-                alert('Please enter a command');
-                return;
-            }
-            
-            const btn = event.target;
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-            btn.disabled = true;
-            
-            document.getElementById('artisanOutput').style.display = 'block';
-            document.getElementById('artisanOutputContent').textContent = 'Executing...';
-            
-            try {
-                const response = await fetch('/api.php?action=execute_laravel_command', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: siteId,
-                        command: command
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    document.getElementById('artisanOutputContent').textContent = result.output || 'Command executed successfully (no output)';
-                } else {
-                    document.getElementById('artisanOutputContent').textContent = 'Error: ' + (result.error || 'Unknown error') + '\n\nOutput:\n' + (result.output || '');
-                }
-            } catch (error) {
-                document.getElementById('artisanOutputContent').textContent = 'Network error: ' + error.message;
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-
         // Terminal Functions
         let term;
         let fitAddon;
@@ -2703,15 +3100,32 @@ QUEUE_CONNECTION=redis</code></pre>
             term = new Terminal({
                 cursorBlink: true,
                 theme: {
-                    background: '#000000',
-                    foreground: '#ffffff'
+                    background: '#1e1e1e', // Slightly lighter black for better contrast
+                    foreground: '#d4d4d4', // Standard VS Code foreground
+                    cursor: '#ffffff',
+                    selectionBackground: 'rgba(255, 255, 255, 0.3)'
                 },
                 fontSize: 14,
-                fontFamily: 'Menlo, Monaco, "Courier New", monospace'
+                lineHeight: 1.2,
+                fontFamily: 'Consolas, "Courier New", monospace', // Simpler stack, let browser resolve system mono
+                allowTransparency: true
             });
             
             fitAddon = new FitAddon.FitAddon();
             term.loadAddon(fitAddon);
+            
+            // Try to load WebGL addon for better rendering
+            try {
+                if (window.WebglAddon) {
+                    const webglAddon = new window.WebglAddon.WebglAddon();
+                    webglAddon.onContextLoss(e => {
+                        webglAddon.dispose();
+                    });
+                    term.loadAddon(webglAddon);
+                }
+            } catch (e) {
+                console.warn('WebGL addon could not be loaded, falling back to canvas renderer', e);
+            }
             
             term.open(document.getElementById('terminal-container'));
             fitAddon.fit();
@@ -2745,6 +3159,9 @@ QUEUE_CONNECTION=redis</code></pre>
             }
         }
         
+        let terminalCwd = '/var/www/html';
+        let commandHistory = [];
+        let historyIndex = -1;
         let commandBuffer = '';
         
         function connectTerminal() {
@@ -2756,9 +3173,13 @@ QUEUE_CONNECTION=redis</code></pre>
             term.reset();
             term.write(`Connecting to ${container}...\r\n`);
             term.write('Type a command and press Enter.\r\n');
-            term.write('$ ');
+            term.write(getPrompt());
             
             setupTerminalInput();
+        }
+        
+        function getPrompt() {
+            return `\r\n\u001b[1;32mwharftales\u001b[0m:\u001b[1;34m${terminalCwd}\u001b[0m$ `;
         }
         
         // Setup terminal input handler once
@@ -2781,7 +3202,11 @@ QUEUE_CONNECTION=redis</code></pre>
                 switch (e) {
                     case '\r': // Enter
                         term.write('\r\n');
-                        executeShellCommand(commandBuffer);
+                        if (commandBuffer.trim()) {
+                            commandHistory.push(commandBuffer);
+                            historyIndex = commandHistory.length;
+                        }
+                        executeTerminalCommand(commandBuffer);
                         commandBuffer = '';
                         break;
                     case '\u007F': // Backspace (DEL)
@@ -2790,8 +3215,55 @@ QUEUE_CONNECTION=redis</code></pre>
                             commandBuffer = commandBuffer.slice(0, -1);
                         }
                         break;
+                    case '\u0003': // Ctrl+C
+                        term.write('^C');
+                        term.write(getPrompt());
+                        commandBuffer = '';
+                        break;
+                    case '\u000c': // Ctrl+L
+                        term.clear();
+                        term.write(getPrompt());
+                        commandBuffer = '';
+                        break;
+                    case '\u001b[A': // Up arrow
+                        if (commandHistory.length > 0) {
+                            if (historyIndex > 0) {
+                                historyIndex--;
+                            }
+                            // Clear line
+                            while (commandBuffer.length > 0) {
+                                term.write('\b \b');
+                                commandBuffer = commandBuffer.slice(0, -1);
+                            }
+                            commandBuffer = commandHistory[historyIndex];
+                            term.write(commandBuffer);
+                        }
+                        break;
+                    case '\u001b[B': // Down arrow
+                        if (commandHistory.length > 0) {
+                            if (historyIndex < commandHistory.length - 1) {
+                                historyIndex++;
+                                // Clear line
+                                while (commandBuffer.length > 0) {
+                                    term.write('\b \b');
+                                    commandBuffer = commandBuffer.slice(0, -1);
+                                }
+                                commandBuffer = commandHistory[historyIndex];
+                                term.write(commandBuffer);
+                            } else {
+                                historyIndex = commandHistory.length;
+                                // Clear line
+                                while (commandBuffer.length > 0) {
+                                    term.write('\b \b');
+                                    commandBuffer = commandBuffer.slice(0, -1);
+                                }
+                                commandBuffer = '';
+                            }
+                        }
+                        break;
                     default:
-                        if (e >= ' ' && e <= '~') {
+                        // Handle normal characters
+                        if (e.length === 1 && e >= ' ' && e <= '~') {
                             commandBuffer += e;
                             term.write(e);
                         }
@@ -2799,9 +3271,9 @@ QUEUE_CONNECTION=redis</code></pre>
             });
         }
         
-        async function executeShellCommand(cmd) {
+        async function executeTerminalCommand(cmd) {
             if (!cmd) {
-                term.write('$ ');
+                term.write(getPrompt());
                 return;
             }
             
@@ -2812,7 +3284,8 @@ QUEUE_CONNECTION=redis</code></pre>
                     body: JSON.stringify({
                         site_id: siteId,
                         container: currentContainer,
-                        command: cmd
+                        command: cmd,
+                        cwd: terminalCwd
                     })
                 });
                 
@@ -2820,16 +3293,21 @@ QUEUE_CONNECTION=redis</code></pre>
                 
                 if (result.success) {
                     const output = (result.output || '').replace(/\n/g, '\r\n');
-                    term.write(output);
-                    if (output && !output.endsWith('\n')) term.write('\r\n');
+                    if (output) {
+                        term.write(output);
+                    }
+                    // Update CWD if returned
+                    if (result.cwd) {
+                        terminalCwd = result.cwd;
+                    }
                 } else {
-                    term.write(`Error: ${result.error}\r\n`);
+                    term.write(`\u001b[1;31mError: ${result.error}\u001b[0m\r\n`);
                 }
             } catch (error) {
-                term.write(`Network error: ${error.message}\r\n`);
+                term.write(`\u001b[1;31mNetwork error: ${error.message}\u001b[0m\r\n`);
             }
             
-            term.write('$ ');
+            term.write(getPrompt());
         }
         
         function displayFiles(files) {

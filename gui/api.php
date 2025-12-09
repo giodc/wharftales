@@ -2729,8 +2729,8 @@ function uploadContainerFile($db) {
 function readContainerFile($db) {
     try {
         $input = json_decode(file_get_contents('php://input'), true);
-        $siteId = $input['id'] ?? null;
-        $path = $input['path'] ?? null;
+        $siteId = $input['id'] ?? $_GET['id'] ?? null;
+        $path = $input['path'] ?? $_GET['path'] ?? null;
         
         if (!$siteId || !$path) {
             throw new Exception("Missing parameters");
@@ -2748,7 +2748,7 @@ function readContainerFile($db) {
         
         // Read file from container
         $output = [];
-        exec("docker exec $containerName cat " . escapeshellarg($path) . " 2>&1", $output, $returnCode);
+        exec("docker exec -u root $containerName cat " . escapeshellarg($path) . " 2>&1", $output, $returnCode);
         
         if ($returnCode !== 0) {
             throw new Exception("Failed to read file: " . implode("\n", $output));
@@ -2804,8 +2804,9 @@ function saveContainerFile($db) {
             throw new Exception("Failed to save file: " . implode("\n", $output));
         }
         
-        // Set proper permissions
-        exec("docker exec $containerName chmod 644 " . escapeshellarg($path) . " 2>&1");
+        // Set proper permissions and ownership as root
+        exec("docker exec -u root $containerName chown www-data:www-data " . escapeshellarg($path) . " 2>&1");
+        exec("docker exec -u root $containerName chmod 644 " . escapeshellarg($path) . " 2>&1");
         
         echo json_encode([
             'success' => true,
@@ -3108,7 +3109,7 @@ function getDashboardStats($db, $id) {
                     
                     // Convert to same unit if needed
                     if (strpos($parts[1], 'MiB') !== false && strpos($parts[1], 'GiB') !== false) {
-                        $used = $used; // Keep in MiB
+                        // $used is in MiB, $total is in GiB
                         $total = $total * 1024; // Convert GiB to MiB
                     }
                     
@@ -4922,7 +4923,11 @@ function executeLaravelCommandAPI($db) {
             throw new Exception("Invalid command characters");
         }
         
-        $cmd = "docker exec -w /var/www/html " . escapeshellarg($containerName) . " php artisan " . $artisanCommand . " 2>&1";
+        // Use bash -c to ensure we are in the correct directory and environment
+        // We also check if artisan exists first to give a better error message
+        $wrapperCmd = "cd /var/www/html && if [ -f artisan ]; then php artisan " . $artisanCommand . "; else echo 'Error: artisan file not found in /var/www/html. Please ensure you have installed dependencies (Composer Install) and your application is mounted correctly.'; exit 1; fi";
+        
+        $cmd = "docker exec " . escapeshellarg($containerName) . " bash -c " . escapeshellarg($wrapperCmd) . " 2>&1";
         
         exec($cmd, $output, $returnCode);
         
@@ -4955,6 +4960,7 @@ function executeShellCommandAPI($db) {
         $container = $input['container'];
         $command = $input['command'];
         $siteId = $input['site_id'] ?? null;
+        $cwd = $input['cwd'] ?? '/var/www/html';
         
         if (!$siteId) {
              throw new Exception("Site ID is required for security verification");
@@ -4972,13 +4978,41 @@ function executeShellCommandAPI($db) {
              throw new Exception("Container does not belong to the specified site");
         }
         
-        // Execute command in the container
-        // We use sh -c to allow pipes etc.
-        $cmd = "docker exec -w /var/www/html " . escapeshellarg($container) . " sh -c " . escapeshellarg($command) . " 2>&1";
+        // Sanitize CWD to ensure it's a valid path format
+        // This is a basic check, the shell command handles the actual directory switching
+        if (!str_starts_with($cwd, '/')) {
+            $cwd = '/var/www/html';
+        }
         
-        exec($cmd, $output, $returnCode);
+        // Execute command in the container with CWD tracking
+        // We wrap the command to capture the exit code and the new CWD
+        // Format: (cd $cwd && command) ; echo "___WHARFTALES_CWD:$(pwd)"
+        // Note: we don't use -w in docker exec because we want to support 'cd' which changes state for our "session"
+        
+        // Escape the command but allow it to be a complex shell command
+        // We can't use escapeshellarg on the whole thing because we want operators like &&, ||, ;, | to work
+        
+        // Instead of trying to maintain state inside the container, we simulate it by always starting from $cwd
+        // And if the user ran 'cd newpath', we detect that from the output or by checking pwd after
+        
+        $wrapperCmd = "cd " . escapeshellarg($cwd) . " && " . $command . "; echo \"___WHARFTALES_CWD:$(pwd)\"";
+        
+        $dockerCmd = "docker exec " . escapeshellarg($container) . " bash -c " . escapeshellarg($wrapperCmd) . " 2>&1";
+        
+        exec($dockerCmd, $output, $returnCode);
         
         $outputStr = implode("\n", $output);
+        $newCwd = $cwd; // Default to old CWD if not found
+        
+        // Extract CWD from output
+        if (preg_match('/___WHARFTALES_CWD:(.*)$/m', $outputStr, $matches)) {
+            $newCwd = trim($matches[1]);
+            // Remove the CWD marker line from output
+            $outputStr = str_replace($matches[0], '', $outputStr);
+            // Trim trailing newlines
+            $outputStr = rtrim($outputStr);
+        }
+        
         if (strlen($outputStr) > 50000) {
             $outputStr = substr($outputStr, 0, 50000) . "\n... [Output truncated]";
         }
@@ -4987,7 +5021,7 @@ function executeShellCommandAPI($db) {
             "success" => true,
             "exit_code" => $returnCode,
             "output" => $outputStr,
-            "cwd" => "/var/www/html" // Mock CWD, tracking real CWD in stateless HTTP is hard without passing it back and forth
+            "cwd" => $newCwd
         ]);
         
     } catch (Exception $e) {
