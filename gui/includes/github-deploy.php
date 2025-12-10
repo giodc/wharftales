@@ -542,25 +542,26 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
     
     // 6. Set proper permissions (critical for Laravel)
     // First set ownership to www:www (Laravel user)
-    exec("docker exec {$containerName} chown -R www:www /var/www/html 2>&1", $chownOutput, $chownReturn);
+    // Must run as root to change ownership
+    exec("docker exec -u root {$containerName} chown -R www:www /var/www/html 2>&1", $chownOutput, $chownReturn);
     if ($chownReturn !== 0) {
-        $results[] = "⚠ Warning: Could not set ownership (may need root access)";
+        $results[] = "⚠ Warning: Could not set ownership (may need root access): " . implode("; ", $chownOutput);
     }
     
     // Set directory permissions (755 = rwxr-xr-x)
-    exec("docker exec {$containerName} find /var/www/html -type d -exec chmod 755 {} \\; 2>&1");
+    exec("docker exec -u root {$containerName} find /var/www/html -type d -exec chmod 755 {} \\; 2>&1");
     
     // Set file permissions (644 = rw-r--r--)
-    exec("docker exec {$containerName} find /var/www/html -type f -exec chmod 644 {} \\; 2>&1");
+    exec("docker exec -u root {$containerName} find /var/www/html -type f -exec chmod 644 {} \\; 2>&1");
     
     // Storage and cache need write permissions (775 = rwxrwxr-x)
-    exec("docker exec {$containerName} sh -c 'chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache 2>&1'");
+    exec("docker exec -u root {$containerName} sh -c 'chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache 2>&1'");
     
     // Database directory needs write permissions for SQLite
-    exec("docker exec {$containerName} sh -c 'chmod -R 775 /var/www/html/database 2>&1'");
+    exec("docker exec -u root {$containerName} sh -c 'chmod -R 775 /var/www/html/database 2>&1'");
     
     // Ensure public/index.php is readable
-    exec("docker exec {$containerName} chmod 644 /var/www/html/public/index.php 2>&1");
+    exec("docker exec -u root {$containerName} chmod 644 /var/www/html/public/index.php 2>&1");
     
     $results[] = "✓ Set proper permissions";
     
@@ -639,23 +640,23 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
         }
         
         // Run npm install
-        $results[] = "Running npm install...";
-        exec("docker exec {$containerName} sh -c 'cd /var/www/html && npm install 2>&1'", $npmInstallOutput, $npmInstallReturn);
+        $results[] = "Running npm install (as www user)...";
+        exec("docker exec -u www {$containerName} sh -c 'cd /var/www/html && npm install 2>&1'", $npmInstallOutput, $npmInstallReturn);
         
         if ($npmInstallReturn === 0) {
             $results[] = "✓ NPM dependencies installed";
             
             // Run npm build
-            $results[] = "Running npm run build...";
-            exec("docker exec {$containerName} sh -c 'cd /var/www/html && npm run build 2>&1'", $npmBuildOutput, $npmBuildReturn);
+            $results[] = "Running npm run build (as www user)...";
+            exec("docker exec -u www {$containerName} sh -c 'cd /var/www/html && npm run build 2>&1'", $npmBuildOutput, $npmBuildReturn);
             
             if ($npmBuildReturn === 0) {
                 $results[] = "✓ Frontend assets built";
             } else {
-                $results[] = "⚠ Frontend build failed (may not be configured)";
+                $results[] = "⚠ Frontend build failed: " . implode("\n", array_slice($npmBuildOutput, -5));
             }
         } else {
-            $results[] = "⚠ NPM install failed";
+            $results[] = "⚠ NPM install failed: " . implode("\n", array_slice($npmInstallOutput, -5));
         }
     } else {
         $results[] = "⚠ No package.json found, skipping npm steps";

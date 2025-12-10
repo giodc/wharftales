@@ -419,14 +419,27 @@ else
     echo "Composer already installed"
 fi
 
-# Check/Install NPM
-echo "Checking Node.js/NPM..."
-docker exec wharftales_gui which npm >/dev/null 2>&1
-if [ $? -ne 0 ]; then
-    echo "Installing Node.js and NPM..."
-    docker exec -u root wharftales_gui bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs" || echo "NPM install failed"
+# Check/Install NPM and Node.js 20
+echo "Checking Node.js version..."
+CURRENT_NODE_VER=$(docker exec wharftales_gui node -v 2>/dev/null || echo "none")
+echo "Current Node version: $CURRENT_NODE_VER"
+
+if [[ "$CURRENT_NODE_VER" != v20* ]]; then
+    echo "Installing/Updating to Node.js 20..."
+    # First remove existing nodejs if it's not version 20 to avoid conflicts
+    if [ "$CURRENT_NODE_VER" != "none" ]; then
+        docker exec -u root wharftales_gui apt-get remove -y nodejs libnode* || true
+        docker exec -u root wharftales_gui apt-get autoremove -y || true
+    fi
+    
+    # Install Node 20
+    docker exec -u root wharftales_gui bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs" || echo "Node.js install failed"
+    
+    # Verify installation
+    NEW_NODE_VER=$(docker exec wharftales_gui node -v 2>/dev/null || echo "none")
+    echo "New Node version: $NEW_NODE_VER"
 else
-    echo "Node.js/NPM already installed"
+    echo "Node.js 20 is already installed"
 fi
 
 docker exec wharftales_gui apache2ctl restart 2>/dev/null || echo "Apache restart skipped"
