@@ -84,7 +84,7 @@ class Updater {
         logUpdate("Creating backup: $backupFile");
         
         // Backup important files
-        exec("cd /var/www/html/.. && tar -czf $backupFile gui/ data/ docker-compose.yml VERSION 2>&1", $output, $returnCode);
+        exec("cd /var/www/html/.. && tar -czf $backupFile gui/ data/ docker-compose.yml versions.json 2>&1", $output, $returnCode);
         
         if ($returnCode !== 0) {
             logUpdate("Warning: Backup creation failed");

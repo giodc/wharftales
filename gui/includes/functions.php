@@ -854,6 +854,14 @@ function normalizeVersion($version) {
  * Get current WharfTales version
  */
 function getCurrentVersion() {
+    if (file_exists('/var/www/html/../versions.json')) {
+        $content = file_get_contents('/var/www/html/../versions.json');
+        $json = json_decode($content, true);
+        if (isset($json['wharftales']['latest'])) {
+            return $json['wharftales']['latest'];
+        }
+    }
+
     $versionFile = '/var/www/html/../VERSION';
     if (file_exists($versionFile)) {
         return trim(file_get_contents($versionFile));

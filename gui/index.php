@@ -91,8 +91,7 @@ $customWildcardDomain = getSetting($db, 'custom_wildcard_domain', '');
                                     <i class="bi bi-plus-circle me-2"></i>Deploy Your First App
                                 </button>
                             <?php else: ?>
-                                <p class="text-muted">You don't have access to any applications yet.<br>Contact an administrator
-                                    to grant you access.</p>
+                                <p class="text-muted">You don't have access to any applications yet.<br>Contact an administrator to grant you access.</p>
                             <?php endif; ?>
                         </div>
                     <?php else: ?>

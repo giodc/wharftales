@@ -647,6 +647,27 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                     </div>
                 </div>
                 <?php endif; ?>
+
+                <!-- Container Management -->
+                <div class="card mt-3 border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <i class="bi bi-box-seam me-2"></i>Container Actions
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Warning:</strong> Rebuilding the container will delete the current container and create a new one from the latest configuration. 
+                            Persistent data in volumes (database, storage) will be preserved, but temporary files will be lost.
+                            This is useful if you need to update system dependencies (like Node.js/PHP extensions).
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-danger" onclick="rebuildContainer()">
+                                <i class="bi bi-arrow-repeat me-2"></i>Rebuild Container
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Domain Section -->
@@ -960,6 +981,9 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                                     <div class="col-md-4 mb-2">
                                         <button class="btn btn-info w-100" onclick="executeShellCommand('npm install --loglevel=info')">
                                             <i class="bi bi-download me-2"></i>Npm Install
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info w-100 mt-2" onclick="installNodeJs()">
+                                            <i class="bi bi-plus-circle me-1"></i>Install Node.js
                                         </button>
                                     </div>
                                     <div class="col-md-4 mb-2">
@@ -2175,7 +2199,18 @@ QUEUE_CONNECTION=redis</code></pre>
             
             try {
                 const response = await fetch('/api.php?action=restart_container&id=' + siteId);
-                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Server returned invalid JSON. The restart may have timed out.');
+                }
                 
                 if (result.success) {
                     showAlert('success', result.message);
@@ -2781,6 +2816,26 @@ QUEUE_CONNECTION=redis</code></pre>
                     if (result.details) logLaravelActivity(result.details, 'info');
                 } else {
                     logLaravelActivity(`Failed to fix permissions: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                logLaravelActivity(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function installNodeJs() {
+            if (!confirm('Install Node.js (v20) and NPM in this container? This may take a minute.')) return;
+            
+            logLaravelActivity('> Installing Node.js and NPM...', 'command');
+            
+            try {
+                const response = await fetch(`/api.php?action=install_nodejs&id=${siteId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    logLaravelActivity(result.message, 'success');
+                    if (result.output) logLaravelActivity(result.output, 'info');
+                } else {
+                    logLaravelActivity(`Failed to install: ${result.error || 'Unknown error'}`, 'error');
                 }
             } catch (error) {
                 logLaravelActivity(`Network error: ${error.message}`, 'error');
@@ -3639,37 +3694,94 @@ QUEUE_CONNECTION=redis</code></pre>
         }
         
         async function saveEnvVars() {
-            if (!confirm('Save environment variables and restart container? This will cause brief downtime.')) {
+            if (!confirm('This will save changes and restart the container. Continue?')) {
                 return;
             }
             
-            // Filter out empty variables
-            const validEnvVars = envVars.filter(env => env.key && env.key.trim() !== '');
+            const inputs = document.querySelectorAll('.env-var-key');
+            const envVars = {};
             
-            if (validEnvVars.length === 0) {
-                showAlert('warning', 'No valid environment variables to save');
-                return;
-            }
-            
-            console.log('Saving env vars:', validEnvVars); // Debug
+            inputs.forEach(input => {
+                const key = input.value.trim();
+                const value = input.nextElementSibling.value; // Get the value input
+                
+                if (key) {
+                    envVars[key] = value;
+                }
+            });
             
             try {
                 const response = await fetch('/api.php?action=save_env_vars', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify({
                         id: siteId,
-                        env_vars: validEnvVars
+                        env_vars: envVars
                     })
                 });
                 
-                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    console.error('Raw response:', text);
+                    throw new Error('Server returned invalid JSON. The process may have timed out but might still be running in background.');
+                }
                 
                 if (result.success) {
                     showAlert('success', 'Environment variables saved and container restarted!');
-                    setTimeout(() => loadEnvVars(), 2000);
+                    setTimeout(() => location.reload(), 2000);
                 } else {
-                    showAlert('danger', 'Error: ' + result.error);
+                    showAlert('danger', 'Failed to save environment variables: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                showAlert('danger', 'Error: ' + error.message);
+            }
+        }
+        
+        async function rebuildContainer() {
+            if (!confirm('Are you sure you want to REBUILD the container? This will stop the site, delete the container, and build a new one from scratch using the latest configuration/image. This may take a few minutes.')) {
+                return;
+            }
+            
+            if (!confirm('Double Check: Have you backed up any important data that is NOT in the persistent volumes?')) {
+                return;
+            }
+            
+            showAlert('info', 'Rebuilding container... This may take several minutes. Please do not close this page.');
+            
+            try {
+                const response = await fetch('/api.php?action=rebuild_container', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: siteId })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    console.error('Raw response:', text);
+                    throw new Error('Server returned invalid JSON. The process may have timed out but might still be running in background.');
+                }
+                
+                if (result.success) {
+                    showAlert('success', 'Container rebuilt successfully! Reloading...');
+                    setTimeout(() => location.reload(), 3000);
+                } else {
+                    showAlert('danger', 'Failed to rebuild container: ' + (result.error || 'Unknown error') + (result.output ? '\nOutput: ' + result.output : ''));
                 }
             } catch (error) {
                 showAlert('danger', 'Network error: ' + error.message);

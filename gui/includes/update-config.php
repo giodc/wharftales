@@ -11,15 +11,25 @@ define('GIT_BRANCH', 'master');
 define('UPDATE_LOG_FILE', '/app/data/update.log');
 
 // Version file location
-define('VERSION_FILE', '/var/www/html/../VERSION');
+define('VERSIONS_JSON_FILE', '/var/www/html/../versions.json');
 
 /**
  * Get current version
  */
 function getCurrentVersion() {
-    if (file_exists(VERSION_FILE)) {
-        return trim(file_get_contents(VERSION_FILE));
+    if (file_exists(VERSIONS_JSON_FILE)) {
+        $content = file_get_contents(VERSIONS_JSON_FILE);
+        $json = json_decode($content, true);
+        if (isset($json['wharftales']['latest'])) {
+            return $json['wharftales']['latest'];
+        }
     }
+    
+    // Fallback for legacy
+    if (file_exists('/var/www/html/../VERSION')) {
+        return trim(file_get_contents('/var/www/html/../VERSION'));
+    }
+    
     return '0.0.0';
 }
 
@@ -35,11 +45,15 @@ function getRemoteVersion() {
             return null;
         }
         
-        // Get remote VERSION file content
-        exec('cd /var/www/html/.. && git show ' . GIT_REMOTE . '/' . GIT_BRANCH . ':VERSION 2>&1', $versionOutput, $returnCode);
+        // Get remote versions.json file content
+        exec('cd /var/www/html/.. && git show ' . GIT_REMOTE . '/' . GIT_BRANCH . ':versions.json 2>&1', $versionOutput, $returnCode);
         
         if ($returnCode === 0 && !empty($versionOutput)) {
-            return trim($versionOutput[0]);
+            $jsonContent = implode("\n", $versionOutput);
+            $json = json_decode($jsonContent, true);
+            if (isset($json['wharftales']['latest'])) {
+                return $json['wharftales']['latest'];
+            }
         }
         
         return null;

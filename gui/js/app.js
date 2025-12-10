@@ -19,8 +19,20 @@ async function apiCall(url, options = {}) {
             throw new Error("SESSION_EXPIRED");
         }
         
-        // Try to parse JSON
-        const result = await response.json();
+        // Try to parse JSON robustly
+        const text = await response.text();
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Failed to parse API response. Raw response:", text);
+            // If response was not OK but we failed to parse JSON, throw with status
+            if (!response.ok) {
+                throw new Error(`Server returned error ${response.status} (invalid JSON)`);
+            }
+            throw new Error("Server returned invalid response. Please check console for details.");
+        }
+
         return result;
     } catch (error) {
         if (error.message === "SESSION_EXPIRED") {

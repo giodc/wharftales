@@ -16,8 +16,17 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         Wharftales
             <span class="badge bg-secondary ms-2 fw-normal" style="font-size: 0.7rem;">
                <?php 
-                    $versionFile = '/var/www/html/../VERSION';
-                    echo file_exists($versionFile) ? trim(file_get_contents($versionFile)) : '1.0.0';
+                    $version = '1.0.0';
+                    if (file_exists('/var/www/html/../versions.json')) {
+                        $content = file_get_contents('/var/www/html/../versions.json');
+                        $json = json_decode($content, true);
+                        if (isset($json['wharftales']['latest'])) {
+                            $version = $json['wharftales']['latest'];
+                        }
+                    } elseif (file_exists('/var/www/html/../VERSION')) {
+                        $version = trim(file_get_contents('/var/www/html/../VERSION'));
+                    }
+                    echo $version;
                 ?>
             </span>
         </a>

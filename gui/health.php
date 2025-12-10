@@ -51,17 +51,23 @@ foreach ($directories as $dir) {
 }
 
 // Check 3: Version file readable
-if (file_exists('../VERSION')) {
-    $version = trim(file_get_contents('../VERSION'));
-    $health['checks']['version'] = [
-        'status' => 'ok',
-        'version' => $version
-    ];
+$version = 'unknown';
+if (file_exists('../versions.json')) {
+   $content = file_get_contents('../versions.json');
+   $json = json_decode($content, true);
+   if (isset($json['wharftales']['latest'])) {
+       $version = $json['wharftales']['latest'];
+   }
+   $health['checks']['version'] = ['status' => 'ok', 'version' => $version];
+} elseif (file_exists('../VERSION')) {
+   $version = trim(file_get_contents('../VERSION'));
+   $health['checks']['version'] = ['status' => 'ok', 'version' => $version];
 } else {
     $health['checks']['version'] = [
-        'status' => 'warning',
-        'error' => 'VERSION file not found'
+        'status' => 'error',
+        'error' => 'Version file not found'
     ];
+    $allHealthy = false;
 }
 
 // Set overall status

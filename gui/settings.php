@@ -636,8 +636,17 @@ $updateInfo = checkForUpdates(false);
                             <div class="col-md-4 text-muted">Version</div>
                             <div class="col-md-8">
                                 <?php 
-                                    $versionFile = '/var/www/html/../VERSION';
-                                    echo file_exists($versionFile) ? trim(file_get_contents($versionFile)) : '1.0.0';
+                                    $version = 'unknown';
+                                    if (file_exists('/var/www/html/../versions.json')) {
+                                        $content = file_get_contents('/var/www/html/../versions.json');
+                                        $json = json_decode($content, true);
+                                        if (isset($json['wharftales']['latest'])) {
+                                            $version = $json['wharftales']['latest'];
+                                        }
+                                    } elseif (file_exists('/var/www/html/../VERSION')) {
+                                        $version = trim(file_get_contents('/var/www/html/../VERSION'));
+                                    }
+                                    echo $version;
                                 ?>
                             </div>
                         </div>

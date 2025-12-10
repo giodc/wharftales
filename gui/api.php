@@ -260,6 +260,10 @@ try {
     case "execute_shell_command":
         executeShellCommandAPI($db);
         break;
+        
+    case "install_nodejs":
+        installNodeJsHandler($db, $_GET["id"]);
+        break;
     
     case "get_container_logs":
         getContainerLogs();
@@ -344,6 +348,10 @@ try {
         updateSettingHandler($db);
         break;
     
+    case "rebuild_container":
+        rebuildContainerHandler($db);
+        break;
+    
     case "verify_2fa_setup":
         verify2FASetupHandler();
         break;
@@ -391,6 +399,10 @@ try {
 }
 
 function createSiteHandler($db) {
+    // Increase time limit for site creation (docker pull/build)
+    set_time_limit(0); ini_set("memory_limit", "512M");
+    ini_set('memory_limit', '512M');
+    
     try {
         // Check if user has permission to create sites
         if (!canCreateSites($_SESSION['user_id'])) {
@@ -1854,6 +1866,7 @@ function deleteSiteById($db, $id) {
 }
 
 function restartContainer($db, $id) {
+    set_time_limit(0); ini_set("memory_limit", "512M"); // Allow long execution for container restart
     try {
         $site = getSiteById($db, $id);
         if (!$site) {
@@ -2801,7 +2814,10 @@ function saveContainerFile($db) {
         unlink($tempFile);
         
         if ($returnCode !== 0) {
-            throw new Exception("Failed to save file: " . implode("\n", $output));
+            $errorMsg = implode("\n", $output);
+            // Ensure UTF-8 to prevent json_encode failure
+            $errorMsg = mb_convert_encoding($errorMsg, 'UTF-8', 'UTF-8');
+            throw new Exception("Failed to save file: " . $errorMsg);
         }
         
         // Set proper permissions and ownership as root
@@ -2815,12 +2831,25 @@ function saveContainerFile($db) {
         
     } catch (Exception $e) {
         http_response_code(400);
-        echo json_encode([
+        $errorMsg = $e->getMessage();
+        $errorMsg = mb_convert_encoding($errorMsg, 'UTF-8', 'UTF-8');
+        
+        $json = json_encode([
             'success' => false,
-            'error' => $e->getMessage()
+            'error' => $errorMsg
         ]);
+        
+        if ($json === false) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'JSON encoding failed: ' . json_last_error_msg()
+            ]);
+        } else {
+            echo $json;
+        }
     }
 }
+
 
 // ============================================
 // ENVIRONMENT VARIABLES HANDLERS
@@ -2899,6 +2928,9 @@ function getEnvironmentVariables($db, $siteId) {
 }
 
 function saveEnvironmentVariables($db) {
+    // Increase time limit for container restart
+    set_time_limit(0); ini_set("memory_limit", "512M");
+    
     try {
         $input = json_decode(file_get_contents('php://input'), true);
         $siteId = $input['id'] ?? null;
@@ -4931,17 +4963,33 @@ function executeLaravelCommandAPI($db) {
         
         exec($cmd, $output, $returnCode);
         
-        echo json_encode([
+        $outputStr = implode("\n", $output);
+        // Ensure UTF-8
+        $outputStr = mb_convert_encoding($outputStr, 'UTF-8', 'UTF-8');
+        
+        $json = json_encode([
             "success" => $returnCode === 0,
             "message" => $returnCode === 0 ? "Command executed successfully" : "Command failed",
-            "output" => implode("\n", $output)
+            "output" => $outputStr
         ]);
+        
+        if ($json === false) {
+            echo json_encode([
+                "success" => false,
+                "error" => "JSON encoding failed: " . json_last_error_msg(),
+                "output" => "Output contained invalid characters and could not be displayed."
+            ]);
+        } else {
+            echo $json;
+        }
         
     } catch (Exception $e) {
         http_response_code(500);
+        $errorMsg = $e->getMessage();
+        $errorMsg = mb_convert_encoding($errorMsg, 'UTF-8', 'UTF-8');
         echo json_encode([
             "success" => false,
-            "error" => $e->getMessage()
+            "error" => $errorMsg
         ]);
     }
 }
@@ -4950,6 +4998,9 @@ function executeLaravelCommandAPI($db) {
  * Execute arbitrary shell commands for Web Terminal
  */
 function executeShellCommandAPI($db) {
+    // Increase time limit for potential long commands (npm install, etc)
+    set_time_limit(0); ini_set("memory_limit", "512M");
+    
     try {
         $input = json_decode(file_get_contents("php://input"), true);
         
@@ -5017,18 +5068,161 @@ function executeShellCommandAPI($db) {
             $outputStr = substr($outputStr, 0, 50000) . "\n... [Output truncated]";
         }
         
-        echo json_encode([
-            "success" => true,
+        // Ensure UTF-8
+        $outputStr = mb_convert_encoding($outputStr, 'UTF-8', 'UTF-8');
+        
+        $json = json_encode([
+            "success" => $returnCode === 0,
             "exit_code" => $returnCode,
             "output" => $outputStr,
             "cwd" => $newCwd
         ]);
         
+        if ($json === false) {
+             echo json_encode([
+                "success" => false,
+                "error" => "JSON encoding failed: " . json_last_error_msg(),
+                "output" => "Output contained invalid characters and could not be displayed.",
+                "cwd" => $cwd
+            ]);
+        } else {
+            echo $json;
+        }
+        
     } catch (Exception $e) {
         http_response_code(500);
+        $errorMsg = $e->getMessage();
+        $errorMsg = mb_convert_encoding($errorMsg, 'UTF-8', 'UTF-8');
         echo json_encode([
             "success" => false,
-            "error" => $e->getMessage()
+            "error" => $errorMsg
+        ]);
+    }
+}
+
+function installNodeJsHandler($db, $siteId) {
+    // Increase time limit
+    set_time_limit(0);
+    
+    try {
+        if (!canManageSite($_SESSION['user_id'], $siteId)) {
+            http_response_code(403);
+            throw new Exception("Permission denied");
+        }
+        
+        $site = getSiteById($db, $siteId);
+        if (!$site) throw new Exception("Site not found");
+        
+        $containerName = $site['container_name'];
+        
+        // Check if already installed
+        exec("docker exec " . escapeshellarg($containerName) . " which npm", $output, $returnVar);
+        if ($returnVar === 0) {
+             echo json_encode([
+                'success' => true,
+                'message' => 'Node.js/NPM is already installed'
+            ]);
+            return;
+        }
+        
+        // Install
+        $cmd = "docker exec -u root " . escapeshellarg($containerName) . " sh -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs'";
+        exec($cmd . " 2>&1", $output, $returnVar);
+        
+        $outputStr = implode("\n", $output);
+        $outputStr = mb_convert_encoding($outputStr, 'UTF-8', 'UTF-8');
+        
+        if ($returnVar !== 0) {
+            throw new Exception("Installation failed: " . $outputStr);
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Node.js & NPM installed successfully',
+            'output' => $outputStr
+        ]);
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        $errorMsg = mb_convert_encoding($e->getMessage(), 'UTF-8', 'UTF-8');
+        echo json_encode([
+            'success' => false,
+            'error' => $errorMsg
+        ]);
+    }
+}
+
+/**
+ * Rebuild container (docker-compose up -d --build)
+ */
+function rebuildContainerHandler($db) {
+    // Increase time limit for this long operation
+    set_time_limit(0); ini_set("memory_limit", "512M");
+    ini_set('memory_limit', '512M');
+    
+    try {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $siteId = $input['id'] ?? null;
+        
+        if (!$siteId) {
+            throw new Exception("Site ID required");
+        }
+        
+        // Check permission
+        if (!canManageSite($_SESSION['user_id'], $siteId)) {
+            http_response_code(403);
+            throw new Exception("Permission denied");
+        }
+        
+        $site = getSiteById($db, $siteId);
+        if (!$site) throw new Exception("Site not found");
+        
+        // Determine path based on site type
+        $baseDir = "/app/apps/" . $site['type'] . "/sites/" . $site['container_name'];
+        $composePath = $baseDir . "/docker-compose.yml";
+        
+        if (!file_exists($composePath)) {
+            throw new Exception("Configuration file not found at $composePath");
+        }
+        
+        // 1. Stop container first
+        $downResult = executeDockerCompose($composePath, "down");
+        
+        // 2. Rebuild and start
+        // We use --build to force rebuild of the image if Dockerfile changed
+        $upResult = executeDockerCompose($composePath, "up -d --build");
+        
+        if ($upResult['success']) {
+            $outputStr = "Down: " . $downResult['output'] . "\n\nUp: " . $upResult['output'];
+            $outputStr = mb_convert_encoding($outputStr, 'UTF-8', 'UTF-8');
+            
+            $json = json_encode([
+                "success" => true,
+                "message" => "Container rebuilt successfully",
+                "output" => $outputStr
+            ]);
+            
+            if ($json === false) {
+                 echo json_encode([
+                    "success" => true,
+                    "message" => "Container rebuilt successfully (output hidden due to encoding error)",
+                ]);
+            } else {
+                echo $json;
+            }
+        } else {
+            $errorOutput = $upResult['output'];
+            $errorOutput = mb_convert_encoding($errorOutput, 'UTF-8', 'UTF-8');
+            throw new Exception("Build failed: " . $errorOutput);
+        }
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        $errorMsg = $e->getMessage();
+        $errorMsg = mb_convert_encoding($errorMsg, 'UTF-8', 'UTF-8');
+        echo json_encode([
+            "success" => false,
+            "error" => $errorMsg
         ]);
     }
 }

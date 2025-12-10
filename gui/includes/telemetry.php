@@ -67,8 +67,16 @@ function sendTelemetryPing() {
         $db = initDatabase();
         
         // Get version
-        $versionFile = '/var/www/html/../VERSION';
-        $version = file_exists($versionFile) ? trim(file_get_contents($versionFile)) : 'unknown';
+        $version = 'unknown';
+        if (file_exists('/var/www/html/../versions.json')) {
+            $content = file_get_contents('/var/www/html/../versions.json');
+            $json = json_decode($content, true);
+            if (isset($json['wharftales']['latest'])) {
+                $version = $json['wharftales']['latest'];
+            }
+        } elseif (file_exists('/var/www/html/../VERSION')) {
+             $version = trim(file_get_contents('/var/www/html/../VERSION'));
+        }
         
         // Get site count
         $stmt = $db->query("SELECT COUNT(*) as count FROM sites");
