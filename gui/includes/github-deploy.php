@@ -652,6 +652,12 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
         if ($npmInstallReturn === 0) {
             $results[] = "✓ NPM dependencies installed";
             
+            // Fix permissions on node_modules to ensure binaries are executable
+            $results[] = "Fixing node_modules permissions...";
+            exec("docker exec -u root {$containerName} sh -c 'chown -R {$webUser}:{$webUser} /var/www/html/node_modules 2>&1'");
+            exec("docker exec -u root {$containerName} sh -c 'chmod -R 755 /var/www/html/node_modules/.bin 2>&1'");
+            $results[] = "✓ Node modules permissions fixed";
+            
             // Run npm build
             $results[] = "Running npm run build (as {$webUser} user)...";
             exec("docker exec -u {$webUser} {$containerName} sh -c 'cd /var/www/html && npm run build 2>&1'", $npmBuildOutput, $npmBuildReturn);

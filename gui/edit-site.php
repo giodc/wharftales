@@ -624,14 +624,21 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                                     <button type="button" class="btn btn-sm btn-danger" onclick="forcePullFromGithubRepo()">
                                         <i class="bi bi-exclamation-triangle me-1"></i>Force Pull (Override)
                                     </button>
-                                    <?php if ($site['type'] === 'laravel'): ?>
-                                    <button type="button" class="btn btn-sm btn-success" onclick="runLaravelBuild()">
-                                        <i class="bi bi-hammer me-1"></i>Build Laravel
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-warning" onclick="fixLaravelPermissions()">
-                                        <i class="bi bi-shield-lock me-1"></i>Fix Permissions
-                                    </button>
-                                    <?php endif; ?>
+                                </div>
+                                
+                                <!-- GitHub Operation Log -->
+                                <div id="githubLogSection" class="mt-3" style="display: none;">
+                                    <div class="card">
+                                        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-terminal me-2"></i>Operation Log</span>
+                                            <button type="button" class="btn btn-sm btn-outline-light" onclick="clearGithubLog()">
+                                                <i class="bi bi-x-circle"></i> Clear
+                                            </button>
+                                        </div>
+                                        <div class="card-body bg-dark text-white" style="font-family: monospace; font-size: 0.875rem; max-height: 400px; overflow-y: auto;">
+                                            <pre id="githubLogOutput" class="text-white mb-0" style="white-space: pre-wrap;"></pre>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <?php endif; ?>
@@ -1044,15 +1051,14 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                     <!-- Activity Log -->
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <span><i class="bi bi-terminal-split me-2"></i>Activity Log</span>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="clearLaravelLog()">
-                                    <i class="bi bi-eraser me-1"></i>Clear
+                            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-terminal me-2"></i>Activity Log</span>
+                                <button type="button" class="btn btn-sm btn-outline-light" onclick="clearLaravelLog()">
+                                    <i class="bi bi-x-circle"></i> Clear
                                 </button>
                             </div>
-                            <div class="card-body p-0">
-                                <div id="laravelLogOutput" class="bg-dark text-light p-3" style="height: 400px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; white-space: pre-wrap;">
-<span class="text-muted">Ready for actions...</span></div>
+                            <div class="card-body bg-dark text-white" style="font-family: monospace; font-size: 0.875rem; max-height: 400px; overflow-y: auto;">
+                                <pre id="laravelLogOutput" class="text-white mb-0" style="white-space: pre-wrap;"><span class="text-muted">Ready for actions...</span></pre>
                             </div>
                         </div>
                     </div>
@@ -1980,23 +1986,46 @@ QUEUE_CONNECTION=redis</code></pre>
             }
         });
         
+        // GitHub Log Helper Functions
+        function showGithubLog() {
+            document.getElementById('githubLogSection').style.display = 'block';
+        }
+        
+        function appendGithubLog(message, type = 'info') {
+            const logOutput = document.getElementById('githubLogOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logOutput.parentElement.scrollTop = logOutput.parentElement.scrollHeight;
+        }
+        
+        function clearGithubLog() {
+            document.getElementById('githubLogOutput').textContent = '';
+            document.getElementById('githubLogSection').style.display = 'none';
+        }
+        
         // Check for GitHub updates
         async function checkForGithubUpdates() {
+            showGithubLog();
+            appendGithubLog('Checking for updates...', 'info');
+            
             try {
                 const response = await fetch(`/api.php?action=check_github_updates&id=${siteId}`);
                 const result = await response.json();
                 
                 if (result.success) {
                     if (result.has_updates) {
-                        alert(`Updates available!\n\nLocal: ${result.local_commit}\nRemote: ${result.remote_commit}`);
+                        appendGithubLog('Updates available!', 'success');
+                        appendGithubLog(`Local commit: ${result.local_commit}`, 'info');
+                        appendGithubLog(`Remote commit: ${result.remote_commit}`, 'info');
                     } else {
-                        alert('You\'re up to date! No new commits available.');
+                        appendGithubLog('You\'re up to date! No new commits available.', 'success');
                     }
                 } else {
-                    alert('Error: ' + result.error);
+                    appendGithubLog('Error: ' + result.error, 'error');
                 }
             } catch (error) {
-                alert('Network error: ' + error.message);
+                appendGithubLog('Network error: ' + error.message, 'error');
             }
         }
         
@@ -2006,6 +2035,9 @@ QUEUE_CONNECTION=redis</code></pre>
                 return;
             }
             
+            showGithubLog();
+            appendGithubLog('Starting pull operation...', 'info');
+            
             try {
                 const response = await fetch(`/api.php?action=pull_from_github&id=${siteId}`, {
                     method: 'POST'
@@ -2013,13 +2045,17 @@ QUEUE_CONNECTION=redis</code></pre>
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(result.message || 'Successfully pulled latest changes!');
-                    location.reload();
+                    appendGithubLog(result.message || 'Successfully pulled latest changes!', 'success');
+                    if (result.output) {
+                        appendGithubLog('Output:', 'info');
+                        appendGithubLog(result.output, 'info');
+                    }
+                    appendGithubLog('✅ Operation completed! You can close this log or continue working.', 'success');
                 } else {
-                    alert('Error: ' + result.error);
+                    appendGithubLog('Error: ' + result.error, 'error');
                 }
             } catch (error) {
-                alert('Network error: ' + error.message);
+                appendGithubLog('Network error: ' + error.message, 'error');
             }
         }
         
@@ -2029,6 +2065,10 @@ QUEUE_CONNECTION=redis</code></pre>
                 return;
             }
             
+            showGithubLog();
+            appendGithubLog('⚠️ Starting FORCE PULL operation...', 'info');
+            appendGithubLog('This will discard all local changes!', 'info');
+            
             try {
                 const response = await fetch(`/api.php?action=force_pull_from_github&id=${siteId}`, {
                     method: 'POST'
@@ -2036,61 +2076,20 @@ QUEUE_CONNECTION=redis</code></pre>
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(result.message || 'Successfully force pulled from GitHub!');
-                    location.reload();
+                    appendGithubLog(result.message || 'Successfully force pulled from GitHub!', 'success');
+                    if (result.output) {
+                        appendGithubLog('Output:', 'info');
+                        appendGithubLog(result.output, 'info');
+                    }
+                    appendGithubLog('✅ Operation completed! You can close this log or continue working.', 'success');
                 } else {
-                    alert('Error: ' + result.error);
+                    appendGithubLog('Error: ' + result.error, 'error');
                 }
             } catch (error) {
-                alert('Network error: ' + error.message);
+                appendGithubLog('Network error: ' + error.message, 'error');
             }
         }
         
-        // Run Laravel Build
-        async function runLaravelBuild() {
-            if (!confirm('Run Laravel build steps?\n\nThis will:\n- Install Composer dependencies\n- Run migrations\n- Install NPM dependencies\n- Build frontend assets\n- Cache configuration')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api.php?action=build_laravel&id=${siteId}`, {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('Laravel build completed!\n\n' + (result.details || result.message));
-                    location.reload();
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        // Fix Laravel Permissions
-        async function fixLaravelPermissions() {
-            if (!confirm('Fix Laravel file permissions?\n\nThis will:\n- Set ownership to web user (www or www-data)\n- Set directory permissions (755)\n- Set file permissions (644)\n- Set storage/cache permissions (775)')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api.php?action=fix_laravel_permissions&id=${siteId}`, {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('Permissions fixed!\n\n' + (result.details || result.message));
-                    location.reload();
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
 
         // Domain Form
         document.getElementById('domainForm')?.addEventListener('submit', async function(e) {
