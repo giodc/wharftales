@@ -89,12 +89,12 @@ function deployFromGitHub($site, $containerName) {
         }
         
         // Set proper permissions (use correct user based on site type)
-        $siteType = $site['type'] ?? '';
-        $user = ($siteType === 'laravel') ? 'www:www' : 'www-data:www-data';
-        exec("docker exec {$containerName} chown -R {$user} /var/www/html");
-        exec("docker exec {$containerName} chmod -R 755 /var/www/html");
+        $webUser = getContainerWebUser($containerName);
+        exec("docker exec -u root {$containerName} chown -R {$webUser}:{$webUser} /var/www/html");
+        exec("docker exec -u root {$containerName} chmod -R 755 /var/www/html");
         
         // Run Laravel build steps if it's a Laravel site
+        $siteType = $site['type'] ?? '';
         if ($siteType === 'laravel') {
             $buildResult = runLaravelBuild($containerName, $siteType);
             if (!$buildResult['success']) {
@@ -259,12 +259,12 @@ function forceDeployFromGitHub($site, $containerName) {
         }
         
         // Set proper permissions (use correct user based on site type)
-        $siteType = $site['type'] ?? '';
-        $user = ($siteType === 'laravel') ? 'www:www' : 'www-data:www-data';
-        exec("docker exec {$containerName} chown -R {$user} /var/www/html");
-        exec("docker exec {$containerName} chmod -R 755 /var/www/html");
+        $webUser = getContainerWebUser($containerName);
+        exec("docker exec -u root {$containerName} chown -R {$webUser}:{$webUser} /var/www/html");
+        exec("docker exec -u root {$containerName} chmod -R 755 /var/www/html");
         
         // Run Laravel build steps if it's a Laravel site
+        $siteType = $site['type'] ?? '';
         if ($siteType === 'laravel') {
             $buildResult = runLaravelBuild($containerName, $siteType);
             if (!$buildResult['success']) {
@@ -377,8 +377,11 @@ function runComposerInstall($containerName) {
         exec($installCmd);
     }
     
+    // Determine correct web user
+    $webUser = getContainerWebUser($containerName);
+    
     // Run composer install
-    exec("docker exec {$containerName} sh -c 'cd /var/www/html && composer install --no-dev --optimize-autoloader 2>&1'", $output, $returnCode);
+    exec("docker exec -u {$webUser} {$containerName} sh -c 'cd /var/www/html && composer install --no-dev --optimize-autoloader 2>&1'", $output, $returnCode);
     
     if ($returnCode !== 0) {
         return ['success' => false, 'message' => 'Composer install failed: ' . implode("\n", $output)];
@@ -541,9 +544,12 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
     $results[] = "✓ Required directories created";
     
     // 6. Set proper permissions (critical for Laravel)
-    // First set ownership to www:www (Laravel user)
+    // Determine correct web user
+    $webUser = getContainerWebUser($containerName);
+    
+    // First set ownership to correct web user
     // Must run as root to change ownership
-    exec("docker exec -u root {$containerName} chown -R www:www /var/www/html 2>&1", $chownOutput, $chownReturn);
+    exec("docker exec -u root {$containerName} chown -R {$webUser}:{$webUser} /var/www/html 2>&1", $chownOutput, $chownReturn);
     if ($chownReturn !== 0) {
         $results[] = "⚠ Warning: Could not set ownership (may need root access): " . implode("; ", $chownOutput);
     }
@@ -598,7 +604,7 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
             
             // Set proper permissions on database file
             exec("docker exec {$containerName} sh -c 'chmod 664 {$dbDatabase} 2>&1'");
-            exec("docker exec {$containerName} sh -c 'chown www:www {$dbDatabase} 2>&1'");
+            exec("docker exec -u root {$containerName} sh -c 'chown {$webUser}:{$webUser} {$dbDatabase} 2>&1'");
             $results[] = "✓ Database file permissions set";
         } else {
             $results[] = "⚠ Could not create database file: " . implode("\n", $touchOutput);
@@ -640,18 +646,23 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
         }
         
         // Run npm install
-        $results[] = "Running npm install (as www user)...";
-        exec("docker exec -u www {$containerName} sh -c 'cd /var/www/html && npm install 2>&1'", $npmInstallOutput, $npmInstallReturn);
+        $results[] = "Running npm install (as {$webUser} user)...";
+        exec("docker exec -u {$webUser} {$containerName} sh -c 'cd /var/www/html && npm install 2>&1'", $npmInstallOutput, $npmInstallReturn);
         
         if ($npmInstallReturn === 0) {
             $results[] = "✓ NPM dependencies installed";
             
             // Run npm build
-            $results[] = "Running npm run build (as www user)...";
-            exec("docker exec -u www {$containerName} sh -c 'cd /var/www/html && npm run build 2>&1'", $npmBuildOutput, $npmBuildReturn);
+            $results[] = "Running npm run build (as {$webUser} user)...";
+            exec("docker exec -u {$webUser} {$containerName} sh -c 'cd /var/www/html && npm run build 2>&1'", $npmBuildOutput, $npmBuildReturn);
             
             if ($npmBuildReturn === 0) {
                 $results[] = "✓ Frontend assets built";
+                
+                // Fix permissions on build output to prevent "permission denied" on subsequent builds
+                exec("docker exec -u root {$containerName} sh -c 'chown -R {$webUser}:{$webUser} /var/www/html/public/build 2>&1'");
+                exec("docker exec -u root {$containerName} sh -c 'chown -R {$webUser}:{$webUser} /var/www/html/node_modules 2>&1'");
+                $results[] = "✓ Build output permissions fixed";
             } else {
                 $results[] = "⚠ Frontend build failed: " . implode("\n", array_slice($npmBuildOutput, -5));
             }

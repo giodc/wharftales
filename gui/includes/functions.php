@@ -518,9 +518,11 @@ function deploySFTPContainer($site) {
             }
             // Set proper permissions - 755 instead of 777 for security
             chmod($bindPath, 0755);
-            // Ensure www-data ownership
-            chown($bindPath, 'www-data');
-            chgrp($bindPath, 'www-data');
+            // Ensure correct web user ownership
+            $uid = getContainerWebUid($site['container_name']);
+            $gid = getContainerWebGid($site['container_name']);
+            chown($bindPath, $uid);
+            chgrp($bindPath, $gid);
         }
     }
     
@@ -556,8 +558,10 @@ function createSFTPDockerCompose($site, $containerName, $volumeName, $useBindMou
     $username = $site['sftp_username'];
     $password = $site['sftp_password'];
     $port = $site['sftp_port'];
-    $puid = 33; // www-data UID
-    $pgid = 33; // www-data GID
+    
+    // Use container's web user UID/GID to ensure permissions match
+    $puid = getContainerWebUid($site['container_name']);
+    $pgid = getContainerWebGid($site['container_name']);
     
     // Determine volume mount
     if ($useBindMount) {
@@ -867,6 +871,60 @@ function getCurrentVersion() {
         return trim(file_get_contents($versionFile));
     }
     return 'unknown';
+}
+
+/**
+ * Get the web user for a container (www or www-data)
+ * 
+ * @param string $containerName Docker container name
+ * @return string User name (www or www-data)
+ */
+function getContainerWebUser($containerName) {
+    // Check if 'www' user exists (Laravel containers)
+    exec("docker exec " . escapeshellarg($containerName) . " id -u www > /dev/null 2>&1", $output, $returnCode);
+    
+    if ($returnCode === 0) {
+        return 'www';
+    }
+    
+    // Default to www-data
+    return 'www-data';
+}
+
+/**
+ * Get the web user UID for a container
+ * 
+ * @param string $containerName Docker container name
+ * @return int UID
+ */
+function getContainerWebUid($containerName) {
+    $user = getContainerWebUser($containerName);
+    exec("docker exec " . escapeshellarg($containerName) . " id -u " . escapeshellarg($user) . " 2>/dev/null", $output, $returnCode);
+    
+    if ($returnCode === 0 && isset($output[0]) && is_numeric(trim($output[0]))) {
+        return intval(trim($output[0]));
+    }
+    
+    // Default to 33 (www-data)
+    return 33;
+}
+
+/**
+ * Get the web user GID for a container
+ * 
+ * @param string $containerName Docker container name
+ * @return int GID
+ */
+function getContainerWebGid($containerName) {
+    $user = getContainerWebUser($containerName);
+    exec("docker exec " . escapeshellarg($containerName) . " id -g " . escapeshellarg($user) . " 2>/dev/null", $output, $returnCode);
+    
+    if ($returnCode === 0 && isset($output[0]) && is_numeric(trim($output[0]))) {
+        return intval(trim($output[0]));
+    }
+    
+    // Default to 33 (www-data)
+    return 33;
 }
 
 /**

@@ -15,16 +15,7 @@ function fixLaravelPermissions($containerName) {
     $results[] = "Fixing Laravel permissions...";
     
     // Determine web user
-    // Prioritize 'www' (often UID 1000) as it's commonly used for the main process in Docker
-    // www-data exists by default in most images so it's a less reliable indicator
-    exec("docker exec {$containerName} id -u www > /dev/null 2>&1", $void, $wwwReturn);
-    
-    if ($wwwReturn === 0) {
-        $webUser = 'www';
-    } else {
-        exec("docker exec {$containerName} id -u www-data > /dev/null 2>&1", $void, $wwwDataReturn);
-        $webUser = ($wwwDataReturn === 0) ? 'www-data' : 'www-data';
-    }
+    $webUser = getContainerWebUser($containerName);
     
     $results[] = "Target user: {$webUser}";
     
