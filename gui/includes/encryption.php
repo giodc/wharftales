@@ -21,18 +21,21 @@ function getEncryptionKey() {
     if (!$storedKey) {
         // Generate new encryption key (32 bytes for AES-256)
         $rawKey = random_bytes(32);
-        $key = base64_encode($rawKey);
-        setSetting($db, 'encryption_key', $key);
+        $base64Key = base64_encode($rawKey);
+        setSetting($db, 'encryption_key', $base64Key);
+        $key = $rawKey;
         return $rawKey;
     } else {
         $decoded = base64_decode($storedKey, true);
         if ($decoded === false || strlen($decoded) !== 32) {
             // Invalid key, regenerate
             $rawKey = random_bytes(32);
-            $key = base64_encode($rawKey);
-            setSetting($db, 'encryption_key', $key);
+            $base64Key = base64_encode($rawKey);
+            setSetting($db, 'encryption_key', $base64Key);
+            $key = $rawKey;
             return $rawKey;
         }
+        $key = $decoded;
         return $decoded;
     }
 }

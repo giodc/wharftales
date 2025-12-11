@@ -977,6 +977,9 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                                         <button class="btn btn-success w-100" onclick="executeShellCommand('composer install --no-interaction --optimize-autoloader --verbose')">
                                             <i class="bi bi-box-seam me-2"></i>Composer Install
                                         </button>
+                                        <button class="btn btn-sm btn-outline-success w-100 mt-2" onclick="executeShellCommand('composer fund')">
+                                            <i class="bi bi-info-circle me-1"></i>Composer Fund
+                                        </button>
                                     </div>
                                     <div class="col-md-4 mb-2">
                                         <button class="btn btn-info w-100" onclick="executeShellCommand('npm install --loglevel=info')">
@@ -984,6 +987,9 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                                         </button>
                                         <button class="btn btn-sm btn-outline-info w-100 mt-2" onclick="installNodeJs()">
                                             <i class="bi bi-plus-circle me-1"></i>Install Node.js
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info w-100 mt-2" onclick="executeShellCommand('npm fund')">
+                                            <i class="bi bi-info-circle me-1"></i>Npm Fund
                                         </button>
                                     </div>
                                     <div class="col-md-4 mb-2">
@@ -2065,7 +2071,7 @@ QUEUE_CONNECTION=redis</code></pre>
         
         // Fix Laravel Permissions
         async function fixLaravelPermissions() {
-            if (!confirm('Fix Laravel file permissions?\n\nThis will:\n- Set ownership to www-data\n- Set directory permissions (755)\n- Set file permissions (644)\n- Set storage/cache permissions (775)')) {
+            if (!confirm('Fix Laravel file permissions?\n\nThis will:\n- Set ownership to web user (www or www-data)\n- Set directory permissions (755)\n- Set file permissions (644)\n- Set storage/cache permissions (775)')) {
                 return;
             }
             

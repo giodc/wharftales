@@ -687,8 +687,11 @@ function deployPHP($site, $config, $db) {
             exec("docker cp {$tempFile} {$containerName}:/var/www/html/index.php");
             
             // Set proper permissions
-            // PHP containers run as www-data, but we still need root to chown after docker cp
-            exec("docker exec -u root {$containerName} chown www-data:www-data /var/www/html/index.php");
+            // Determine correct web user
+            $webUser = getContainerWebUser($containerName);
+            
+            // PHP containers run as www-data (or www), but we still need root to chown after docker cp
+            exec("docker exec -u root {$containerName} chown {$webUser}:{$webUser} /var/www/html/index.php");
             exec("docker exec -u root {$containerName} chmod 644 /var/www/html/index.php");
             
             // Clean up temp file
@@ -930,8 +933,11 @@ function deployLaravel($site, $config, $db) {
         exec("docker cp {$tempFile} {$containerName}:/var/www/html/public/index.php");
         
         // Set proper permissions (Laravel uses www:www user, not www-data)
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
         // Must run as root to change ownership
-        exec("docker exec -u root {$containerName} chown -R www:www /var/www/html/public");
+        exec("docker exec -u root {$containerName} chown -R {$webUser}:{$webUser} /var/www/html/public");
         exec("docker exec -u root {$containerName} chmod 644 /var/www/html/public/index.php");
         
         // Clean up temp file
@@ -1583,7 +1589,11 @@ function updateSiteData($db) {
         
         // Encrypt new token if provided (empty means keep existing)
         if (!empty($githubToken)) {
-            $githubToken = encryptGitHubToken($githubToken);
+            $encryptedToken = encryptGitHubToken($githubToken);
+            if ($encryptedToken === null) {
+                throw new Exception("Failed to encrypt GitHub token. Please try again.");
+            }
+            $githubToken = $encryptedToken;
         } else {
             // Keep existing token
             $githubToken = $site['github_token'];
@@ -2614,7 +2624,7 @@ function createContainerFile($db) {
         $containerName = $site['container_name'];
         
         // Create temp file with content
-        $tempFile = tempnam(sys_get_temp_dir(), 'newfile_');
+        $tempFile = tempnam(sys_get_temp_dir(), 'wt_');
         file_put_contents($tempFile, $content);
         
         // Copy to container
@@ -2625,8 +2635,12 @@ function createContainerFile($db) {
             throw new Exception("Failed to create file: " . implode("\n", $output));
         }
         
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
         // Set proper permissions
         exec("docker exec $containerName chmod 644 " . escapeshellarg($fullPath) . " 2>&1");
+        exec("docker exec -u root $containerName chown {$webUser}:{$webUser} " . escapeshellarg($fullPath) . " 2>&1");
         
         echo json_encode([
             'success' => true,
@@ -2672,8 +2686,13 @@ function createContainerFolder($db) {
             throw new Exception("Failed to create folder: " . implode("\n", $output));
         }
         
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
         // Set proper permissions
         exec("docker exec $containerName chmod 755 " . escapeshellarg($fullPath) . " 2>&1");
+        // Ensure ownership
+        exec("docker exec -u root $containerName chown {$webUser}:{$webUser} " . escapeshellarg($fullPath) . " 2>&1");
         
         echo json_encode([
             'success' => true,
@@ -2722,8 +2741,13 @@ function uploadContainerFile($db) {
             throw new Exception("Failed to upload file: " . implode("\n", $output));
         }
         
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
         // Set proper permissions
         exec("docker exec $containerName chmod 644 " . escapeshellarg($fullPath) . " 2>&1");
+        // Ensure ownership
+        exec("docker exec -u root $containerName chown {$webUser}:{$webUser} " . escapeshellarg($fullPath) . " 2>&1");
         
         echo json_encode([
             'success' => true,
@@ -2820,8 +2844,11 @@ function saveContainerFile($db) {
             throw new Exception("Failed to save file: " . $errorMsg);
         }
         
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
         // Set proper permissions and ownership as root
-        exec("docker exec -u root $containerName chown www-data:www-data " . escapeshellarg($path) . " 2>&1");
+        exec("docker exec -u root $containerName chown {$webUser}:{$webUser} " . escapeshellarg($path) . " 2>&1");
         exec("docker exec -u root $containerName chmod 644 " . escapeshellarg($path) . " 2>&1");
         
         echo json_encode([
@@ -4959,7 +4986,10 @@ function executeLaravelCommandAPI($db) {
         // We also check if artisan exists first to give a better error message
         $wrapperCmd = "cd /var/www/html && if [ -f artisan ]; then php artisan " . $artisanCommand . "; else echo 'Error: artisan file not found in /var/www/html. Please ensure you have installed dependencies (Composer Install) and your application is mounted correctly.'; exit 1; fi";
         
-        $cmd = "docker exec " . escapeshellarg($containerName) . " bash -c " . escapeshellarg($wrapperCmd) . " 2>&1";
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
+        $cmd = "docker exec -u {$webUser} " . escapeshellarg($containerName) . " bash -c " . escapeshellarg($wrapperCmd) . " 2>&1";
         
         exec($cmd, $output, $returnCode);
         
@@ -5048,7 +5078,10 @@ function executeShellCommandAPI($db) {
         
         $wrapperCmd = "cd " . escapeshellarg($cwd) . " && " . $command . "; echo \"___WHARFTALES_CWD:$(pwd)\"";
         
-        $dockerCmd = "docker exec " . escapeshellarg($container) . " bash -c " . escapeshellarg($wrapperCmd) . " 2>&1";
+        // Determine correct web user
+        $webUser = getContainerWebUser($container);
+        
+        $dockerCmd = "docker exec -u {$webUser} " . escapeshellarg($container) . " bash -c " . escapeshellarg($wrapperCmd) . " 2>&1";
         
         exec($dockerCmd, $output, $returnCode);
         
