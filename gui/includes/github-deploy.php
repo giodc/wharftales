@@ -655,7 +655,16 @@ function runLaravelBuild($containerName, $siteType = 'laravel') {
             // Fix permissions on node_modules to ensure binaries are executable
             $results[] = "Fixing node_modules permissions...";
             exec("docker exec -u root {$containerName} sh -c 'chown -R {$webUser}:{$webUser} /var/www/html/node_modules 2>&1'");
-            exec("docker exec -u root {$containerName} sh -c 'chmod -R 755 /var/www/html/node_modules/.bin 2>&1'");
+            
+            // Set execute permissions on all binaries in .bin directory
+            exec("docker exec -u root {$containerName} sh -c 'if [ -d /var/www/html/node_modules/.bin ]; then chmod +x /var/www/html/node_modules/.bin/* 2>&1; fi'", $chmodOutput);
+            
+            // Verify vite is executable
+            exec("docker exec {$containerName} sh -c 'ls -la /var/www/html/node_modules/.bin/vite 2>&1'", $viteCheckOutput);
+            if (!empty($viteCheckOutput)) {
+                $results[] = "  Vite binary: " . trim($viteCheckOutput[0]);
+            }
+            
             $results[] = "✓ Node modules permissions fixed";
             
             // Run npm build
