@@ -3,7 +3,8 @@
 /**
  * WharfTales Update Checker - Cron Script
  * This script checks for updates and optionally auto-updates
- * Run via cron: */5 * * * * /usr/bin/php /opt/wharftales/scripts/check-updates-cron.php
+ * Run via cron: (every 5 minutes)
+ * Crontab entry: star-slash-5 * * * * /usr/bin/php /opt/wharftales/scripts/check-updates-cron.php
  */
 
 // Change to the correct directory

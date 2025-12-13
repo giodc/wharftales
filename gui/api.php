@@ -270,6 +270,14 @@ try {
     case "execute_shell_command":
         executeShellCommandAPI($db);
         break;
+    
+    case "reload_supervisor":
+        reloadSupervisorAPI($db);
+        break;
+    
+    case "reload_phpfpm":
+        reloadPhpFpmAPI($db);
+        break;
         
     case "install_nodejs":
         installNodeJsHandler($db, $_GET["id"]);
@@ -5156,6 +5164,118 @@ function executeShellCommandAPI($db) {
         } else {
             echo $json;
         }
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        $errorMsg = $e->getMessage();
+        $errorMsg = mb_convert_encoding($errorMsg, 'UTF-8', 'UTF-8');
+        echo json_encode([
+            "success" => false,
+            "error" => $errorMsg
+        ]);
+    }
+}
+
+/**
+ * Reload PHP-FPM after editing php.ini
+ */
+function reloadPhpFpmAPI($db) {
+    try {
+        $input = json_decode(file_get_contents("php://input"), true);
+        
+        if (!isset($input['id'])) {
+            throw new Exception("Site ID is required");
+        }
+        
+        $siteId = $input['id'];
+        
+        // Check permission
+        if (!canAccessSite($_SESSION['user_id'], $siteId, 'manage')) {
+            throw new Exception("Permission denied");
+        }
+        
+        $site = getSiteById($db, $siteId);
+        if (!$site || $site['type'] !== 'laravel') {
+            throw new Exception("Invalid site or not a Laravel application");
+        }
+        
+        $containerName = $site['container_name'];
+        
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
+        // Reload PHP-FPM via supervisorctl (since PHP-FPM runs under supervisor)
+        $cmd = "docker exec -u {$webUser} " . escapeshellarg($containerName) . " supervisorctl restart php-fpm 2>&1";
+        exec($cmd, $output, $returnCode);
+        
+        $outputStr = implode("\n", $output);
+        $outputStr = mb_convert_encoding($outputStr, 'UTF-8', 'UTF-8');
+        
+        $success = ($returnCode === 0);
+        
+        echo json_encode([
+            "success" => $success,
+            "message" => $success ? "PHP-FPM reloaded successfully" : "Failed to reload PHP-FPM",
+            "output" => $outputStr
+        ]);
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        $errorMsg = $e->getMessage();
+        $errorMsg = mb_convert_encoding($errorMsg, 'UTF-8', 'UTF-8');
+        echo json_encode([
+            "success" => false,
+            "error" => $errorMsg
+        ]);
+    }
+}
+
+/**
+ * Reload Supervisor configuration after editing supervisord.conf
+ */
+function reloadSupervisorAPI($db) {
+    try {
+        $input = json_decode(file_get_contents("php://input"), true);
+        
+        if (!isset($input['id'])) {
+            throw new Exception("Site ID is required");
+        }
+        
+        $siteId = $input['id'];
+        
+        // Check permission
+        if (!canAccessSite($_SESSION['user_id'], $siteId, 'manage')) {
+            throw new Exception("Permission denied");
+        }
+        
+        $site = getSiteById($db, $siteId);
+        if (!$site || $site['type'] !== 'laravel') {
+            throw new Exception("Invalid site or not a Laravel application");
+        }
+        
+        $containerName = $site['container_name'];
+        
+        // Determine correct web user
+        $webUser = getContainerWebUser($containerName);
+        
+        // Reload supervisor configuration
+        $cmd = "docker exec -u {$webUser} " . escapeshellarg($containerName) . " supervisorctl reread 2>&1";
+        exec($cmd, $output1, $returnCode1);
+        
+        $cmd = "docker exec -u {$webUser} " . escapeshellarg($containerName) . " supervisorctl update 2>&1";
+        exec($cmd, $output2, $returnCode2);
+        
+        $output = array_merge($output1, $output2);
+        $outputStr = implode("\n", $output);
+        $outputStr = mb_convert_encoding($outputStr, 'UTF-8', 'UTF-8');
+        
+        $success = ($returnCode1 === 0 && $returnCode2 === 0);
+        
+        echo json_encode([
+            "success" => $success,
+            "message" => $success ? "Supervisor configuration reloaded successfully" : "Failed to reload Supervisor configuration",
+            "output" => $outputStr
+        ]);
         
     } catch (Exception $e) {
         http_response_code(500);

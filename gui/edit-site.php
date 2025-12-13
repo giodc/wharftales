@@ -1043,6 +1043,44 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                         </div>
                     </div>
 
+                    <!-- PHP Configuration -->
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>PHP Configuration</span>
+                                <button class="btn btn-sm btn-primary" onclick="openPhpIniEditor()">
+                                    <i class="bi bi-pencil-square me-2"></i>Edit php.ini
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-secondary mb-0">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Edit PHP configuration to adjust memory limits, upload sizes, execution times, etc. 
+                                    <strong>Note:</strong> Changes require a PHP-FPM reload (automatic on save).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Supervisor Configuration -->
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Supervisor Configuration</span>
+                                <button class="btn btn-sm btn-primary" onclick="openSupervisorEditor()">
+                                    <i class="bi bi-pencil-square me-2"></i>Edit supervisord.conf
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-secondary mb-0">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Edit Supervisor configuration to manage background processes (workers, queues, SSR, etc.). 
+                                    <strong>Note:</strong> Changes will be applied with <code>supervisorctl reread && supervisorctl update</code>.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Artisan Console -->
                     <div class="col-12 mb-4">
                         <div class="card">
@@ -1817,6 +1855,80 @@ QUEUE_CONNECTION=redis</code></pre>
                     </button>
                     <button type="button" class="btn btn-primary" onclick="saveEnvFile()">
                         <i class="bi bi-save me-2"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PHP Configuration Editor Modal -->
+    <div class="modal fade" id="phpIniEditorModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i>Edit PHP Configuration (php.ini)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Common settings to adjust:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><code>memory_limit</code> - Maximum memory a script can use (e.g., 256M, 512M)</li>
+                            <li><code>upload_max_filesize</code> - Maximum file upload size (e.g., 64M, 128M)</li>
+                            <li><code>post_max_size</code> - Maximum POST data size (should be >= upload_max_filesize)</li>
+                            <li><code>max_execution_time</code> - Maximum script execution time in seconds</li>
+                            <li><code>max_input_time</code> - Maximum time for input parsing</li>
+                        </ul>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> Invalid PHP configuration can prevent your application from running. Changes will reload PHP-FPM automatically.
+                    </div>
+                    <div class="mb-3">
+                        <textarea id="phpIniEditorContent" class="form-control" rows="20" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 14px; background-color: #1e1e1e; color: #d4d4d4;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="savePhpIniFile()">
+                        <i class="bi bi-save me-2"></i>Save & Reload PHP-FPM
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supervisor Editor Modal -->
+    <div class="modal fade" id="supervisorEditorModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i>Edit Supervisor Configuration (supervisord.conf)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> Be careful when editing this file. Invalid syntax can break Supervisor and prevent your application from running.
+                        Changes will be applied with <code>supervisorctl reread && supervisorctl update</code>.
+                    </div>
+                    <div class="mb-3">
+                        <textarea id="supervisorEditorContent" class="form-control" rows="20" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 14px; background-color: #1e1e1e; color: #d4d4d4;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="saveSupervisorFile()">
+                        <i class="bi bi-save me-2"></i>Save & Reload
                     </button>
                 </div>
             </div>
@@ -2734,6 +2846,44 @@ QUEUE_CONNECTION=redis</code></pre>
             }
         }
         
+        async function openPhpIniEditor() {
+            const modal = new bootstrap.Modal(document.getElementById('phpIniEditorModal'));
+            document.getElementById('phpIniEditorContent').value = 'Loading php.ini...';
+            modal.show();
+            
+            try {
+                const response = await fetch(`/api.php?action=read_file&id=${siteId}&path=/usr/local/etc/php/conf.d/laravel.ini`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('phpIniEditorContent').value = result.content;
+                } else {
+                    document.getElementById('phpIniEditorContent').value = '; Error loading php.ini: ' + (result.error || 'Unknown error');
+                }
+            } catch (error) {
+                document.getElementById('phpIniEditorContent').value = '; Network error: ' + error.message;
+            }
+        }
+        
+        async function openSupervisorEditor() {
+            const modal = new bootstrap.Modal(document.getElementById('supervisorEditorModal'));
+            document.getElementById('supervisorEditorContent').value = 'Loading supervisord.conf...';
+            modal.show();
+            
+            try {
+                const response = await fetch(`/api.php?action=read_file&id=${siteId}&path=/etc/supervisor/conf.d/supervisord.conf`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('supervisorEditorContent').value = result.content;
+                } else {
+                    document.getElementById('supervisorEditorContent').value = '# Error loading supervisord.conf: ' + (result.error || 'Unknown error');
+                }
+            } catch (error) {
+                document.getElementById('supervisorEditorContent').value = '# Network error: ' + error.message;
+            }
+        }
+        
         async function saveEnvFile() {
             const content = document.getElementById('envEditorContent').value;
             
@@ -2764,6 +2914,100 @@ QUEUE_CONNECTION=redis</code></pre>
                     }
                 } else {
                     alert('Failed to save .env: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        }
+        
+        async function savePhpIniFile() {
+            const content = document.getElementById('phpIniEditorContent').value;
+            
+            if (!confirm('Are you sure you want to save changes to php.ini? This will reload PHP-FPM.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api.php?action=save_file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: siteId,
+                        path: '/usr/local/etc/php/conf.d/laravel.ini',
+                        content: content
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('success', 'php.ini saved successfully!');
+                    bootstrap.Modal.getInstance(document.getElementById('phpIniEditorModal')).hide();
+                    
+                    // Reload PHP-FPM
+                    logLaravelActivity('Reloading PHP-FPM...', 'info');
+                    const reloadResponse = await fetch('/api.php?action=reload_phpfpm', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: siteId })
+                    });
+                    
+                    const reloadResult = await reloadResponse.json();
+                    if (reloadResult.success) {
+                        logLaravelActivity('PHP-FPM reloaded successfully', 'success');
+                        showAlert('success', 'PHP configuration applied!');
+                    } else {
+                        logLaravelActivity('Failed to reload PHP-FPM: ' + (reloadResult.error || 'Unknown error'), 'error');
+                    }
+                } else {
+                    alert('Failed to save php.ini: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        }
+        
+        async function saveSupervisorFile() {
+            const content = document.getElementById('supervisorEditorContent').value;
+            
+            if (!confirm('Are you sure you want to save changes to supervisord.conf? This will reload Supervisor configuration.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api.php?action=save_file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: siteId,
+                        path: '/etc/supervisor/conf.d/supervisord.conf',
+                        content: content
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('success', 'supervisord.conf saved successfully!');
+                    bootstrap.Modal.getInstance(document.getElementById('supervisorEditorModal')).hide();
+                    
+                    // Reload supervisor configuration
+                    logLaravelActivity('Reloading Supervisor configuration...', 'info');
+                    const reloadResponse = await fetch('/api.php?action=reload_supervisor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: siteId })
+                    });
+                    
+                    const reloadResult = await reloadResponse.json();
+                    if (reloadResult.success) {
+                        logLaravelActivity('Supervisor reloaded successfully', 'success');
+                        showAlert('success', 'Supervisor configuration reloaded!');
+                    } else {
+                        logLaravelActivity('Failed to reload Supervisor: ' + (reloadResult.error || 'Unknown error'), 'error');
+                    }
+                } else {
+                    alert('Failed to save supervisord.conf: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
                 alert('Network error: ' + error.message);
