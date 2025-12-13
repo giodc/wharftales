@@ -654,27 +654,6 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                     </div>
                 </div>
                 <?php endif; ?>
-
-                <!-- Container Management -->
-                <div class="card mt-3 border-danger">
-                    <div class="card-header bg-danger text-white">
-                        <i class="bi bi-box-seam me-2"></i>Container Actions
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            <strong>Warning:</strong> Rebuilding the container will delete the current container and create a new one from the latest configuration. 
-                            Persistent data in volumes (database, storage) will be preserved, but temporary files will be lost.
-                            This is useful if you need to update system dependencies (like Node.js/PHP extensions).
-                        </div>
-                        
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-danger" onclick="rebuildContainer()">
-                                <i class="bi bi-arrow-repeat me-2"></i>Rebuild Container
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Domain Section -->
@@ -816,6 +795,39 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                             <button class="btn btn-danger" onclick="stopContainer()">
                                 <i class="bi bi-stop-fill me-2"></i>Stop Container
                             </button>
+                        </div>
+                        
+                        <!-- Rebuild Container -->
+                        <div class="card mt-4 border-danger">
+                            <div class="card-header bg-danger text-white">
+                                <i class="bi bi-arrow-repeat me-2"></i>Rebuild Container
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-warning mb-3">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    <strong>Warning:</strong> Rebuilding will delete the current container and create a new one from the latest configuration/image. 
+                                    Persistent data in volumes (database, uploads) will be preserved, but temporary files will be lost.
+                                    This is useful to update system dependencies (Node.js, PHP extensions) or apply Dockerfile changes.
+                                </div>
+                                <button class="btn btn-outline-danger" onclick="rebuildContainer()">
+                                    <i class="bi bi-arrow-repeat me-2"></i>Rebuild Container
+                                </button>
+                                
+                                <!-- Rebuild Log Section -->
+                                <div id="rebuildLogSection" class="mt-3" style="display: none;">
+                                    <div class="card bg-dark text-white">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-terminal me-2"></i>Rebuild Log</span>
+                                            <button type="button" class="btn btn-sm btn-outline-light" onclick="hideRebuildLog()">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <pre id="rebuildLog" style="max-height: 400px; overflow-y: auto; font-size: 0.85rem; margin: 0; white-space: pre-wrap;"></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1002,6 +1014,9 @@ $containerStatus = getDockerContainerStatus($site['container_name']);
                                     <div class="col-md-4 mb-2">
                                         <button class="btn btn-primary w-100" onclick="executeShellCommand('npm run build -- --logLevel info')">
                                             <i class="bi bi-hammer me-2"></i>Npm Run Build
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning w-100 mt-2" onclick="fixLaravelPermissions()">
+                                            <i class="bi bi-shield-check me-1"></i>Fix Permissions
                                         </button>
                                     </div>
                                 </div>
@@ -2804,28 +2819,6 @@ QUEUE_CONNECTION=redis</code></pre>
                 logLaravelActivity(`Network error: ${error.message}`, 'error');
             }
         }
-        
-        async function fixLaravelPermissions() {
-            if (!confirm('This will reset permissions for the Laravel application. Continue?')) {
-                return;
-            }
-            
-            logLaravelActivity('> Fixing permissions...', 'command');
-            
-            try {
-                const response = await fetch(`/api.php?action=fix_laravel_permissions&id=${siteId}`);
-                const result = await response.json();
-                
-                if (result.success) {
-                    logLaravelActivity('Permissions fixed successfully!', 'success');
-                    if (result.details) logLaravelActivity(result.details, 'info');
-                } else {
-                    logLaravelActivity(`Failed to fix permissions: ${result.error || 'Unknown error'}`, 'error');
-                }
-            } catch (error) {
-                logLaravelActivity(`Network error: ${error.message}`, 'error');
-            }
-        }
 
         async function installNodeJs() {
             if (!confirm('Install Node.js (v20) and NPM in this container? This may take a minute.')) return;
@@ -2891,6 +2884,42 @@ QUEUE_CONNECTION=redis</code></pre>
              } catch (error) {
                  logLaravelActivity(`Network error: ${error.message}`, 'error');
              }
+        }
+
+        async function fixLaravelPermissions() {
+            if (!confirm('Fix file permissions and ownership for Laravel? This will set proper permissions for storage, bootstrap/cache, and all files.')) {
+                return;
+            }
+            
+            logLaravelActivity('Fixing Laravel permissions...', 'info');
+            
+            try {
+                const response = await fetch('/api.php?action=fix_laravel_permissions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        site_id: siteId,
+                        container: containerName
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    logLaravelActivity('✓ Permissions fixed successfully!', 'success');
+                    if (result.output) {
+                        logLaravelActivity(result.output, 'info');
+                    }
+                } else {
+                    logLaravelActivity(`Error: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                logLaravelActivity(`Network error: ${error.message}`, 'error');
+            }
         }
 
         async function flushRedis() {
@@ -3751,6 +3780,28 @@ QUEUE_CONNECTION=redis</code></pre>
             }
         }
         
+        // Rebuild log functions
+        function showRebuildLog() {
+            document.getElementById('rebuildLogSection').style.display = 'block';
+            document.getElementById('rebuildLog').innerHTML = '';
+        }
+        
+        function hideRebuildLog() {
+            document.getElementById('rebuildLogSection').style.display = 'none';
+        }
+        
+        function appendRebuildLog(message, type = 'info') {
+            const log = document.getElementById('rebuildLog');
+            const timestamp = new Date().toLocaleTimeString();
+            let color = '#adb5bd';
+            if (type === 'success') color = '#28a745';
+            if (type === 'error') color = '#dc3545';
+            if (type === 'warning') color = '#ffc107';
+            
+            log.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
         async function rebuildContainer() {
             if (!confirm('Are you sure you want to REBUILD the container? This will stop the site, delete the container, and build a new one from scratch using the latest configuration/image. This may take a few minutes.')) {
                 return;
@@ -3760,7 +3811,9 @@ QUEUE_CONNECTION=redis</code></pre>
                 return;
             }
             
-            showAlert('info', 'Rebuilding container... This may take several minutes. Please do not close this page.');
+            showRebuildLog();
+            appendRebuildLog('🔄 Starting container rebuild...', 'info');
+            appendRebuildLog('Step 1: Stopping and removing current container...', 'info');
             
             try {
                 const response = await fetch('/api.php?action=rebuild_container', {
@@ -3769,27 +3822,45 @@ QUEUE_CONNECTION=redis</code></pre>
                     body: JSON.stringify({ id: siteId })
                 });
                 
+                appendRebuildLog('Step 2: Building new container from latest image/config...', 'info');
+                
                 if (!response.ok) {
+                    appendRebuildLog(`HTTP error: ${response.status}`, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 const text = await response.text();
+                appendRebuildLog('Step 3: Processing response...', 'info');
+                
                 let result;
                 try {
                     result = JSON.parse(text);
                 } catch (e) {
                     console.error('Raw response:', text);
+                    appendRebuildLog('Raw response: ' + text, 'warning');
+                    appendRebuildLog('Failed to parse JSON response. Process may still be running.', 'error');
                     throw new Error('Server returned invalid JSON. The process may have timed out but might still be running in background.');
                 }
                 
                 if (result.success) {
-                    showAlert('success', 'Container rebuilt successfully! Reloading...');
+                    appendRebuildLog('✅ Container rebuilt successfully!', 'success');
+                    if (result.output) {
+                        appendRebuildLog('--- Docker Output ---', 'info');
+                        appendRebuildLog(result.output, 'info');
+                        appendRebuildLog('--- End Output ---', 'info');
+                    }
+                    appendRebuildLog('Reloading page in 3 seconds...', 'success');
                     setTimeout(() => location.reload(), 3000);
                 } else {
-                    showAlert('danger', 'Failed to rebuild container: ' + (result.error || 'Unknown error') + (result.output ? '\nOutput: ' + result.output : ''));
+                    appendRebuildLog('❌ Rebuild failed: ' + (result.error || 'Unknown error'), 'error');
+                    if (result.output) {
+                        appendRebuildLog('--- Docker Output ---', 'warning');
+                        appendRebuildLog(result.output, 'warning');
+                        appendRebuildLog('--- End Output ---', 'warning');
+                    }
                 }
             } catch (error) {
-                showAlert('danger', 'Network error: ' + error.message);
+                appendRebuildLog('❌ Error: ' + error.message, 'error');
             }
         }
         

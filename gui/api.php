@@ -36,6 +36,16 @@ set_exception_handler(function($exception) {
     exit;
 });
 
+/**
+ * Get the correct apps base path (handles both /app/apps/ and /opt/wharftales/apps/)
+ */
+function getAppsBasePath() {
+    if (file_exists('/app/apps/')) {
+        return '/app/apps';
+    }
+    return '/opt/wharftales/apps';
+}
+
 try {
     require_once 'includes/functions.php';
     require_once 'includes/auth.php';
@@ -130,7 +140,7 @@ try {
         break;
     
     case "fix_laravel_permissions":
-        fixLaravelPermissionsHandler($db, $_GET["id"]);
+        fixLaravelPermissionsHandler($db);
         break;
 
     case "delete_site":
@@ -615,7 +625,8 @@ function deployPHP($site, $config, $db) {
     }
     
     // Create PHP application container
-    $composePath = "/app/apps/php/sites/{$site['container_name']}/docker-compose.yml";
+    $basePath = getAppsBasePath();
+    $composePath = "$basePath/php/sites/{$site['container_name']}/docker-compose.yml";
     $generatedPassword = null;
     $phpCompose = createPHPDockerCompose($site, $config, $generatedPassword);
 
@@ -746,6 +757,8 @@ function createPHPDockerCompose($site, $config, &$generatedPassword = null) {
     $imageName = "wharftales/php:{$phpVersion}-apache";
     exec("docker image inspect {$imageName} 2>/dev/null", $output, $imageExists);
     
+    $appsPath = getAppsBasePath();
+    
     $compose = "version: '3.8'
 services:
   {$containerName}:";
@@ -758,7 +771,7 @@ services:
         // Fallback to building from Dockerfile
         $compose .= "
     build:
-      context: /app/apps/php
+      context: {$appsPath}/php
       dockerfile: Dockerfile
       args:
         PHP_VERSION: {$phpVersion}";
@@ -877,7 +890,8 @@ networks:
 
 function deployLaravel($site, $config, $db) {
     // Create Laravel application container (use Apache HTTP to avoid FastCGI 502)
-    $composePath = "/app/apps/laravel/sites/{$site['container_name']}/docker-compose.yml";
+    $basePath = getAppsBasePath();
+    $composePath = "$basePath/laravel/sites/{$site['container_name']}/docker-compose.yml";
     $generatedPassword = null;
     $laravelCompose = createLaravelDockerCompose($site, $config, $generatedPassword);
 
@@ -976,7 +990,8 @@ function deployMariaDB($db, $site, $config) {
     }
     
     // Create MariaDB docker-compose
-    $composePath = "/app/apps/mariadb/sites/{$site['container_name']}/docker-compose.yml";
+    $basePath = getAppsBasePath();
+    $composePath = "$basePath/mariadb/sites/{$site['container_name']}/docker-compose.yml";
     $mariadbCompose = createMariaDBDockerCompose($site, $config, $rootPassword, $userPassword);
     
     $dir = dirname($composePath);
@@ -1081,6 +1096,8 @@ function createLaravelDockerCompose($site, $config, &$generatedPassword = null) 
     $imageName = "wharftales/laravel:{$phpVersion}-fpm";
     exec("docker image inspect {$imageName} 2>/dev/null", $output, $imageExists);
     
+    $appsPath = getAppsBasePath();
+    
     $compose = "version: '3.8'
 services:
   {$containerName}:";
@@ -1093,7 +1110,7 @@ services:
         // Fallback to building from Dockerfile
         $compose .= "
     build:
-      context: /app/apps/laravel
+      context: {$appsPath}/laravel
       dockerfile: Dockerfile
       args:
         PHP_VERSION: {$phpVersion}";
@@ -1240,6 +1257,8 @@ function createWordPressDockerCompose($site, $config, &$generatedPassword = null
     $imageName = "wharftales/wordpress:{$phpVersion}-fpm";
     exec("docker image inspect {$imageName} 2>/dev/null", $output, $imageExists);
     
+    $appsPath = getAppsBasePath();
+    
     // Use custom WordPress Dockerfile with security improvements
     $compose = "version: '3.8'
 services:
@@ -1253,7 +1272,7 @@ services:
         // Fallback to building from Dockerfile
         $compose .= "
     build:
-      context: /app/apps/wordpress
+      context: {$appsPath}/wordpress
       dockerfile: Dockerfile
       args:
         PHP_VERSION: {$phpVersion}";
@@ -1434,7 +1453,8 @@ function deployWordPress($db, $site, $config) {
     // No need to create new database - WordPress will create tables with prefix
     
     // Create WordPress application containers
-    $composePath = "/app/apps/wordpress/sites/{$site['container_name']}/docker-compose.yml";
+    $basePath = getAppsBasePath();
+    $composePath = "$basePath/wordpress/sites/{$site['container_name']}/docker-compose.yml";
     
     // Generate the docker-compose and get the generated password
     $dbPassword = null;
@@ -1634,7 +1654,8 @@ function updateSiteData($db) {
             $updatedSite = getSiteById($db, $siteId);
             
             // Regenerate docker-compose.yml with new settings
-            $composePath = "/app/apps/{$updatedSite['type']}/sites/{$updatedSite['container_name']}/docker-compose.yml";
+            $basePath = getAppsBasePath();
+            $composePath = "$basePath/{$updatedSite['type']}/sites/{$updatedSite['container_name']}/docker-compose.yml";
             
             if (file_exists($composePath)) {
                 // Generate new compose file based on site type
@@ -1744,7 +1765,8 @@ function updateSiteSSLConfig($db) {
         
         // Regenerate container configuration
         $updatedSite = getSiteById($db, $siteId);
-        $composePath = "/app/apps/{$updatedSite['type']}/sites/{$updatedSite['container_name']}/docker-compose.yml";
+        $basePath = getAppsBasePath();
+        $composePath = "$basePath/{$updatedSite['type']}/sites/{$updatedSite['container_name']}/docker-compose.yml";
         
         if (file_exists($composePath)) {
             // Generate new compose file based on site type
@@ -1799,7 +1821,8 @@ function deleteSiteById($db, $id) {
         $containerName = $site['container_name'];
         
         // Stop and remove containers using docker-compose
-        $composePath = "/app/apps/{$site['type']}/sites/{$containerName}/docker-compose.yml";
+        $basePath = getAppsBasePath();
+        $composePath = "$basePath/{$site['type']}/sites/{$containerName}/docker-compose.yml";
         if (file_exists($composePath)) {
             // Use 'down' without -v to preserve volumes, or 'down -v' to delete them
             $command = $keepData ? "down" : "down -v";
@@ -1844,7 +1867,8 @@ function deleteSiteById($db, $id) {
         }
         
         // Delete the entire site directory
-        $siteDir = "/app/apps/{$site['type']}/sites/{$containerName}";
+        $basePath = getAppsBasePath();
+        $siteDir = "$basePath/{$site['type']}/sites/{$containerName}";
         if (is_dir($siteDir)) {
             // Recursively delete the directory
             exec("rm -rf " . escapeshellarg($siteDir) . " 2>&1");
@@ -4359,7 +4383,8 @@ function changePHPVersionHandler($db) {
         $site['php_version'] = $newVersion; // Ensure it's set
         
         // Regenerate docker-compose with new PHP version
-        $composePath = "/app/apps/{$site['type']}/sites/{$site['container_name']}/docker-compose.yml";
+        $basePath = getAppsBasePath();
+        $composePath = "$basePath/{$site['type']}/sites/{$site['container_name']}/docker-compose.yml";
         
         $newCompose = '';
         if ($site['type'] === 'wordpress') {
@@ -4588,8 +4613,16 @@ function buildLaravelHandler($db, $siteId) {
 /**
  * Fix Laravel permissions
  */
-function fixLaravelPermissionsHandler($db, $siteId) {
+function fixLaravelPermissionsHandler($db) {
     try {
+        // Get request body
+        $input = json_decode(file_get_contents("php://input"), true);
+        $siteId = $input['site_id'] ?? null;
+        
+        if (!$siteId) {
+            throw new Exception("Site ID is required");
+        }
+        
         // Check permissions
         if (!canManageSite($_SESSION['user_id'], $siteId)) {
             http_response_code(403);
@@ -4612,7 +4645,7 @@ function fixLaravelPermissionsHandler($db, $siteId) {
             echo json_encode([
                 'success' => true,
                 'message' => $result['message'],
-                'details' => $result['details'] ?? ''
+                'output' => $result['details'] ?? ''
             ]);
         } else {
             throw new Exception($result['message']);
@@ -4812,7 +4845,8 @@ function updateCustomDatabaseHandler($db) {
         $dbPassword = null;
         $wpCompose = createWordPressDockerCompose($site, $config, $dbPassword);
         
-        $composePath = "/app/apps/wordpress/sites/{$site['container_name']}/docker-compose.yml";
+        $basePath = getAppsBasePath();
+        $composePath = "$basePath/wordpress/sites/{$site['container_name']}/docker-compose.yml";
         file_put_contents($composePath, $wpCompose);
         
         // Save to database
@@ -4903,7 +4937,8 @@ function toggleMariaDBExternalAccessHandler($db) {
         
         $mariadbCompose = createMariaDBDockerCompose($site, $config, $rootPassword, $userPassword);
         
-        $composePath = "/app/apps/mariadb/sites/{$site['container_name']}/docker-compose.yml";
+        $basePath = getAppsBasePath();
+        $composePath = "$basePath/mariadb/sites/{$site['container_name']}/docker-compose.yml";
         file_put_contents($composePath, $mariadbCompose);
         
         // Save to database
@@ -5210,12 +5245,22 @@ function rebuildContainerHandler($db) {
         $site = getSiteById($db, $siteId);
         if (!$site) throw new Exception("Site not found");
         
-        // Determine path based on site type
-        $baseDir = "/app/apps/" . $site['type'] . "/sites/" . $site['container_name'];
-        $composePath = $baseDir . "/docker-compose.yml";
+        // Determine path based on site type - check both possible locations
+        $possiblePaths = [
+            "/app/apps/" . $site['type'] . "/sites/" . $site['container_name'] . "/docker-compose.yml",
+            "/opt/wharftales/apps/" . $site['type'] . "/sites/" . $site['container_name'] . "/docker-compose.yml"
+        ];
         
-        if (!file_exists($composePath)) {
-            throw new Exception("Configuration file not found at $composePath");
+        $composePath = null;
+        foreach ($possiblePaths as $path) {
+            if (file_exists($path)) {
+                $composePath = $path;
+                break;
+            }
+        }
+        
+        if (!$composePath) {
+            throw new Exception("Configuration file not found. Checked: " . implode(", ", $possiblePaths));
         }
         
         // 1. Stop container first

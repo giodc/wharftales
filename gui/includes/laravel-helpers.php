@@ -48,6 +48,14 @@ function fixLaravelPermissions($containerName) {
         $results[] = "✓ Set storage/cache permissions (775)";
     }
     
+    // Fix node_modules and vendor executables
+    // node_modules/.bin contains symlinks, and we need to make actual bin files executable
+    // This includes .js files, native binaries (esbuild, etc), and other executables
+    exec("docker exec -u root {$containerName} sh -c 'if [ -d /var/www/html/node_modules ]; then find /var/www/html/node_modules -path \"*/bin/*\" -type f -exec chmod 755 {} \\; 2>/dev/null; fi' 2>&1", $output, $return);
+    exec("docker exec -u root {$containerName} sh -c 'if [ -d /var/www/html/node_modules/.bin ]; then chmod -R 755 /var/www/html/node_modules/.bin; fi' 2>&1", $output, $return);
+    exec("docker exec -u root {$containerName} sh -c 'if [ -d /var/www/html/vendor/bin ]; then chmod -R 755 /var/www/html/vendor/bin; fi' 2>&1", $output, $return);
+    $results[] = "✓ Set executable permissions for node_modules and vendor executables (including native binaries)";
+    
     // Ensure index.php files are readable
     exec("docker exec -u root {$containerName} chmod 644 /var/www/html/index.php 2>/dev/null", $output, $return);
     exec("docker exec -u root {$containerName} chmod 644 /var/www/html/public/index.php 2>/dev/null", $output, $return);
