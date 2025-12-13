@@ -1,5 +1,4 @@
-# Exclude build/config files from being copied to /var/www/html
-Dockerfile
-php.ini
+# Exclude site directories and build files from being copied to /var/www/html
 sites/
+Dockerfile
 .dockerignore

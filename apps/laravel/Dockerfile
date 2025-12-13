@@ -41,17 +41,16 @@ WORKDIR /var/www/html
 RUN groupadd -g 1000 www
 RUN useradd -u 1000 -ms /bin/bash -g www www
 
-# Copy existing application directory contents
+# Copy config files to system locations FIRST (before copying to /var/www/html)
+COPY nginx.conf /etc/nginx/sites-available/default
+COPY php.ini /usr/local/etc/php/conf.d/laravel.ini
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copy application directory contents (exclude sites/ via .dockerignore)
 COPY --chown=www:www . /var/www/html
 
-# Copy Nginx config
-COPY nginx.conf /etc/nginx/sites-available/default
-
-# Copy PHP-FPM config
-COPY php.ini /usr/local/etc/php/conf.d/laravel.ini
-
-# Copy supervisor config
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Clean up config files from /var/www/html (they're already in system locations)
+RUN rm -f /var/www/html/nginx.conf /var/www/html/php.ini /var/www/html/supervisord.conf /var/www/html/Dockerfile
 
 # Configure Nginx to run on non-privileged port 8080
 RUN sed -i 's/listen 80/listen 8080/' /etc/nginx/sites-available/default \
