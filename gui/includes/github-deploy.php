@@ -56,6 +56,10 @@ function deployFromGitHub($site, $containerName) {
             // First, mark directory as safe to avoid "dubious ownership" error
             exec("docker exec {$containerName} sh -c 'git config --global --add safe.directory /var/www/html 2>&1'");
             
+            // Update the remote URL with the latest token (important when token is updated)
+            $escapedRepoUrl = escapeshellarg($repoUrl);
+            exec("docker exec {$containerName} sh -c 'cd /var/www/html && git remote set-url origin {$escapedRepoUrl} 2>&1'");
+            
             $pullOutput = [];
             $pullCmd = "docker exec {$containerName} sh -c 'cd /var/www/html && git pull origin {$githubBranch} 2>&1'";
             exec($pullCmd, $pullOutput, $pullReturn);
@@ -211,6 +215,10 @@ function forceDeployFromGitHub($site, $containerName) {
             // First, mark directory as safe to avoid "dubious ownership" error
             exec("docker exec {$containerName} sh -c 'git config --global --add safe.directory /var/www/html 2>&1'");
             
+            // Update the remote URL with the latest token (important when token is updated)
+            $escapedRepoUrl = escapeshellarg($repoUrl);
+            exec("docker exec {$containerName} sh -c 'cd /var/www/html && git remote set-url origin {$escapedRepoUrl} 2>&1'");
+            
             // Fetch latest changes
             $fetchOutput = [];
             $fetchCmd = "docker exec {$containerName} sh -c 'cd /var/www/html && git fetch origin {$githubBranch} 2>&1'";
@@ -319,6 +327,11 @@ function checkGitHubUpdates($site, $containerName) {
         
         // Mark directory as safe to avoid "dubious ownership" error
         exec("docker exec {$containerName} sh -c 'git config --global --add safe.directory /var/www/html 2>&1'");
+        
+        // Update the remote URL with the latest token (important when token is updated)
+        $repoUrl = normalizeGitHubUrl($githubRepo, $githubToken);
+        $escapedRepoUrl = escapeshellarg($repoUrl);
+        exec("docker exec {$containerName} sh -c 'cd /var/www/html && git remote set-url origin {$escapedRepoUrl} 2>&1'");
         
         // Get current local commit
         exec("docker exec {$containerName} sh -c 'cd /var/www/html && git rev-parse HEAD 2>/dev/null'", $localOutput, $localReturn);
