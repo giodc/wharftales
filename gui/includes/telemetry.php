@@ -74,8 +74,6 @@ function sendTelemetryPing() {
             if (isset($json['wharftales']['latest'])) {
                 $version = $json['wharftales']['latest'];
             }
-        } elseif (file_exists('/var/www/html/../VERSION')) {
-             $version = trim(file_get_contents('/var/www/html/../VERSION'));
         }
         
         // Get site count

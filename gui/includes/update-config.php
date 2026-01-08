@@ -25,11 +25,6 @@ function getCurrentVersion() {
         }
     }
     
-    // Fallback for legacy
-    if (file_exists('/var/www/html/../VERSION')) {
-        return trim(file_get_contents('/var/www/html/../VERSION'));
-    }
-    
     return '0.0.0';
 }
 
