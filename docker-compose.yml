@@ -1,5 +1,27 @@
 
 services:
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: wharftales_docker_proxy
+    environment:
+      - CONTAINERS=1
+      - NETWORKS=1
+      - SERVICES=1
+      - IMAGES=1
+      - INFO=1
+      - POST=1
+      - BUILD=1
+      - COMMIT=1
+      - EXEC=1
+      - VOLUMES=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - wharftales
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
   traefik:
     image: traefik:v2.11
     container_name: wharftales_traefik
@@ -13,7 +35,7 @@ services:
       - "--entrypoints.websecure-alt.address=:8443"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=info@giodc.com"
+      - "--certificatesresolvers.letsencrypt.acme.email=CHANGE_ME@example.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       # Access logs
       - "--accesslog=true"
@@ -29,6 +51,8 @@ services:
       - "80:80"
       - "443:443"
       - "8443:8443"  # Alternative HTTPS port for dashboard
+    env_file:
+      - ./data/traefik-dns.env
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./ssl:/letsencrypt
@@ -46,29 +70,47 @@ services:
     ports:
       - "9000:8080"  # Dashboard accessible on port 9000
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Removed direct Docker socket mount - using proxy instead
       - /usr/bin/docker:/usr/bin/docker:ro
       - /usr/local/bin/docker-compose:/usr/local/bin/docker-compose:ro
       - ./data:/app/data
       - ./ssl:/app/ssl
       - ./apps:/app/apps
       - ./docker-compose.yml:/opt/wharftales/docker-compose.yml
-      - ./VERSION:/var/www/html/../VERSION:ro
+      - ./versions.json:/var/www/html/../versions.json:ro
       - ./.git:/var/www/html/../.git:ro
       # Mount GUI files for live updates (development)
       - ./gui:/var/www/html
     environment:
       - DB_PATH=/app/data/database.sqlite
-
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    depends_on:
+      - docker-proxy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    
     labels:
       - traefik.enable=true
-      - traefik.http.routers.webgui.rule=Host(`dash.develop.wharftales.org`)
+      - traefik.http.routers.webgui.rule=Host(`CHANGE_ME.example.com`)
       - traefik.http.routers.webgui.entrypoints=web
       - traefik.http.services.webgui.loadbalancer.server.port=8080
-      - traefik.http.routers.webgui-secure.rule=Host(`dash.develop.wharftales.org`)
+      # Standard HTTPS on port 443
+      - traefik.http.routers.webgui-secure.rule=Host(`CHANGE_ME.example.com`)
       - traefik.http.routers.webgui-secure.entrypoints=websecure
       - traefik.http.routers.webgui-secure.tls=true
       - traefik.http.routers.webgui-secure.tls.certresolver=letsencrypt
+      # Alternative HTTPS on port 8443 (extra security)
+      - traefik.http.routers.webgui-alt.rule=Host(`CHANGE_ME.example.com`)
+      - traefik.http.routers.webgui-alt.entrypoints=websecure-alt
+      - traefik.http.routers.webgui-alt.tls=true
+      - traefik.http.routers.webgui-alt.tls.certresolver=letsencrypt
       - traefik.http.middlewares.webgui-redirect.redirectscheme.scheme=https
       - traefik.http.middlewares.webgui-redirect.redirectscheme.permanent=true
       - traefik.http.routers.webgui.middlewares=webgui-redirect
