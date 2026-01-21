@@ -573,10 +573,10 @@ function createSFTPDockerCompose($site, $containerName, $volumeName, $useBindMou
         $volumeSection = "\nvolumes:\n  {$volumeName}:\n    external: true\n";
     }
     
-    // SECURITY: Bind to localhost only by default
-    // Users should use SSH tunneling or configure firewall rules for remote access
-    // Change "127.0.0.1" to "0.0.0.0" only if you have proper firewall rules
-    $bindAddress = "127.0.0.1";
+    // Allow remote SFTP connections
+    // IMPORTANT: Ensure your firewall only allows trusted IPs to access SFTP ports (2222+)
+    // Each site gets its own unique port and credentials
+    $bindAddress = "0.0.0.0";
     
     return "services:
   {$containerName}:
