@@ -61,7 +61,7 @@ for server in "${SERVERS[@]}"; do
         
         # Pull latest code
         echo "Pulling latest code..."
-        git pull origin master
+        git pull origin main
         
         # Make fix script executable
         chmod +x fix-remote-installation.sh

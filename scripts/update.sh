@@ -35,8 +35,8 @@ if [ -f "ssl/acme.json" ]; then
 fi
 
 # Pull latest changes from git
-echo "📥 Pulling latest changes from git master..."
-sudo git pull origin master
+echo "📥 Pulling latest changes from git main..."
+sudo git pull origin main
 
 # Restore docker-compose.yml to preserve user settings
 if [ -f "$BACKUP_DIR/docker-compose.yml" ]; then

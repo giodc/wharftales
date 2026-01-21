@@ -247,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['telemetry_enabled']))
 $updateCheckEnabled = getSetting($db, 'update_check_enabled', '1');
 $autoUpdateEnabled = getSetting($db, 'auto_update_enabled', '0');
 $updateCheckFrequency = getSetting($db, 'update_check_frequency', '86400');
-$versionsUrl = getSetting($db, 'versions_url', 'https://raw.githubusercontent.com/giodc/wharftales/refs/heads/master/versions.json');
+$versionsUrl = getSetting($db, 'versions_url', 'https://raw.githubusercontent.com/giodc/wharftales/main/versions.json');
 $currentVersion = getCurrentVersion();
 
 // Check for updates (non-blocking, uses cache if recent)

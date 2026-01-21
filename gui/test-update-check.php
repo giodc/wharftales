@@ -12,7 +12,7 @@ echo "<pre>";
 
 // Test 1: Check if file_get_contents works
 echo "=== Test 1: Basic file_get_contents ===" . PHP_EOL;
-$url = 'https://raw.githubusercontent.com/giodc/wharftales/refs/heads/master/versions.json';
+$url = 'https://raw.githubusercontent.com/giodc/wharftales/main/versions.json';
 echo "URL: $url" . PHP_EOL;
 
 $context = stream_context_create([

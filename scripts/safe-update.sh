@@ -96,7 +96,7 @@ if ! git diff-index --quiet HEAD --; then
 fi
 
 # Pull latest version
-git pull origin master
+git pull origin main
 
 echo -e "${GREEN}  ✓ Latest code downloaded${NC}"
 echo ""

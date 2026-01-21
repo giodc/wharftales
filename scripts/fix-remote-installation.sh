@@ -38,7 +38,7 @@ docker network prune -f
 echo ""
 echo -e "${BLUE}Step 4: Pulling latest code...${NC}"
 cd /opt/wharftales
-git pull origin master
+git pull origin main
 
 echo ""
 echo -e "${BLUE}Step 5: Fixing docker-compose.yml mount path...${NC}"

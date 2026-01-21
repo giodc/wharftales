@@ -11,7 +11,7 @@ cd /opt/wharftales
 
 # Pull latest changes
 echo "📥 Pulling latest changes from GitHub..."
-git pull origin master
+git pull origin main
 
 # Force fix if still v3.0
 if grep -q "traefik:v3.0" docker-compose.yml; then

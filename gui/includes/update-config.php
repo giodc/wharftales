@@ -7,7 +7,7 @@ define('UPDATE_ENABLED', true);
 define('AUTO_UPDATE_ENABLED', false); // Set to true to enable automatic updates
 define('UPDATE_CHECK_INTERVAL', 3600); // Check for updates every hour (in seconds)
 define('GIT_REMOTE', 'origin');
-define('GIT_BRANCH', 'master');
+define('GIT_BRANCH', 'main');
 define('UPDATE_LOG_FILE', '/app/data/update.log');
 
 // Version file location

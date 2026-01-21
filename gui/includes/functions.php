@@ -858,18 +858,26 @@ function normalizeVersion($version) {
  * Get current WharfTales version
  */
 function getCurrentVersion() {
-    if (file_exists('/var/www/html/../versions.json')) {
-        $content = file_get_contents('/var/www/html/../versions.json');
-        $json = json_decode($content, true);
-        if (isset($json['wharftales']['latest'])) {
-            return $json['wharftales']['latest'];
+    // Primary: Read from versions.json (mounted from host)
+    $versionsFile = '/var/www/html/../versions.json';
+    if (file_exists($versionsFile)) {
+        $content = @file_get_contents($versionsFile);
+        if ($content !== false) {
+            $json = json_decode($content, true);
+            if (isset($json['wharftales']['latest'])) {
+                return $json['wharftales']['latest'];
+            }
         }
     }
-
-    $versionFile = '/var/www/html/../VERSION';
-    if (file_exists($versionFile)) {
-        return trim(file_get_contents($versionFile));
+    
+    // Fallback: Try git describe if in a git repository
+    if (is_dir('/var/www/html/../.git')) {
+        $gitVersion = @exec('cd /var/www/html/.. && git describe --tags --always 2>/dev/null', $output, $returnCode);
+        if ($returnCode === 0 && !empty($gitVersion)) {
+            return trim($gitVersion);
+        }
     }
+    
     return 'unknown';
 }
 
@@ -957,7 +965,7 @@ function checkForUpdates($forceCheck = false) {
     }
     
     $currentVersion = getCurrentVersion();
-    $versionsUrl = getSetting($db, 'versions_url', 'https://raw.githubusercontent.com/giodc/wharftales/refs/heads/master/versions.json');
+    $versionsUrl = getSetting($db, 'versions_url', 'https://raw.githubusercontent.com/giodc/wharftales/main/versions.json');
     
     try {
         $response = false;

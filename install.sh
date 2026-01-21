@@ -85,7 +85,7 @@ if [ "$UPDATE_MODE" = true ]; then
     
     # Pull latest version
     echo "Pulling latest version from GitHub..."
-    git pull origin master
+    git pull origin main
     
     # Preserve user settings from old docker-compose.yml
     if [ -f "$BACKUP_DIR/docker-compose.yml" ]; then

@@ -61,7 +61,7 @@ $currentUrl = getSetting($db, 'versions_url');
                     <li>Commit and push <code>versions.json</code> to your repository</li>
                     <li>Go to Settings → System Updates</li>
                     <li>Change "Versions URL" to:<br>
-                        <code>https://raw.githubusercontent.com/giodc/wharftales/refs/heads/master/versions.json</code>
+                        <code>https://raw.githubusercontent.com/giodc/wharftales/main/versions.json</code>
                     </li>
                     <li>Click "Save Update Settings"</li>
                 </ol>
