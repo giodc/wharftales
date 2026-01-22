@@ -188,12 +188,12 @@ if [ "$UPDATE_MODE" = true ]; then
     
     # Fix data directory permissions
     echo "Fixing data directory permissions..."
-    docker exec -u root wharftales_gui chown -R www-data:www-data /app/data
-    docker exec -u root wharftales_gui chmod -R 775 /app/data
+    docker exec -u root wharftales_gui chown -R www-data:www-data /app/data 2>/dev/null || true
+    docker exec -u root wharftales_gui chmod -R 775 /app/data 2>/dev/null || true
     
     echo "Fixing apps directory permissions..."
-    docker exec -u root wharftales_gui chown -R www-data:www-data /app/apps
-    docker exec -u root wharftales_gui chmod -R 775 /app/apps
+    docker exec -u root wharftales_gui chown -R www-data:www-data /app/apps 2>/dev/null || true
+    docker exec -u root wharftales_gui chmod -R 775 /app/apps 2>/dev/null || true
     docker exec -u root wharftales_gui bash -c "find /app/apps -type d -exec chmod 775 {} \\;" 2>/dev/null || true
     docker exec -u root wharftales_gui bash -c "find /app/apps -type f -exec chmod 664 {} \\;" 2>/dev/null || true
     
@@ -445,12 +445,12 @@ fi
 docker exec wharftales_gui apache2ctl restart 2>/dev/null || echo "Apache restart skipped"
 
 echo "Fixing data directory permissions..."
-docker exec -u root wharftales_gui chown -R www-data:www-data /app/data
-docker exec -u root wharftales_gui chmod -R 775 /app/data
+docker exec -u root wharftales_gui chown -R www-data:www-data /app/data 2>/dev/null || true
+docker exec -u root wharftales_gui chmod -R 775 /app/data 2>/dev/null || true
 
 echo "Fixing apps directory permissions..."
-docker exec -u root wharftales_gui chown -R www-data:www-data /app/apps
-docker exec -u root wharftales_gui chmod -R 775 /app/apps
+docker exec -u root wharftales_gui chown -R www-data:www-data /app/apps 2>/dev/null || true
+docker exec -u root wharftales_gui chmod -R 775 /app/apps 2>/dev/null || true
 docker exec -u root wharftales_gui bash -c "find /app/apps -type d -exec chmod 775 {} \\;" 2>/dev/null || true
 docker exec -u root wharftales_gui bash -c "find /app/apps -type f -exec chmod 664 {} \\;" 2>/dev/null || true
 
