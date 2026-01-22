@@ -593,6 +593,7 @@ function createSFTPDockerCompose($site, $containerName, $volumeName, $useBindMou
       - TZ=UTC
       - USER_NAME={$username}
       - USER_PASSWORD={$password}
+      - USER_HOME=/config/files
       - PASSWORD_ACCESS=true
       - PUBLIC_KEY_DIR=/config/.ssh/authorized_keys
       - SUDO_ACCESS=false
