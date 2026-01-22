@@ -500,7 +500,13 @@ function deploySFTPContainer($site) {
     if ($result['success'] && !empty($result['output'])) {
         $allVolumes = explode("\n", trim($result['output']));
         foreach ($allVolumes as $vol) {
-            if (strpos($vol, $volumeSearchPattern) !== false && strpos($vol, '_data') !== false) {
+            // Skip database volumes
+            if (strpos($vol, '_db_data') !== false || strpos($vol, '_redis') !== false) {
+                continue;
+            }
+            // Match web content volumes (containing _wp_ or ending with _data but not _db_data)
+            if (strpos($vol, $volumeSearchPattern) !== false && 
+                (strpos($vol, '_wp_') !== false || strpos($vol, '_data') !== false)) {
                 $volumeName = $vol;
                 break;
             }
