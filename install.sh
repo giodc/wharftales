@@ -198,7 +198,7 @@ if [ "$UPDATE_MODE" = true ]; then
     docker exec -u root wharftales_gui bash -c "find /app/apps -type f -exec chmod 664 {} \\;" 2>/dev/null || true
     
     echo "Ensuring database file exists with proper permissions..."
-    docker exec -u root wharftales_gui bash -c "touch /app/data/database.sqlite && chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite"
+    docker exec -u root wharftales_gui bash -c "touch /app/data/database.sqlite && chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite" 2>/dev/null || true
     
     # Run database migrations
     echo "Running database migrations..."
@@ -455,7 +455,7 @@ docker exec -u root wharftales_gui bash -c "find /app/apps -type d -exec chmod 7
 docker exec -u root wharftales_gui bash -c "find /app/apps -type f -exec chmod 664 {} \\;" 2>/dev/null || true
 
 echo "Creating database file with proper permissions..."
-docker exec -u root wharftales_gui bash -c "touch /app/data/database.sqlite && chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite"
+docker exec -u root wharftales_gui bash -c "touch /app/data/database.sqlite && chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite" 2>/dev/null || true
 
 echo "Initializing database..."
 sleep 2
@@ -469,7 +469,7 @@ INITEOF
 [ $? -ne 0 ] && echo "Database initialization failed - will be created on first access"
 
 echo "Verifying database permissions..."
-docker exec -u root wharftales_gui bash -c "chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite"
+docker exec -u root wharftales_gui bash -c "chown www-data:www-data /app/data/database.sqlite && chmod 664 /app/data/database.sqlite" 2>/dev/null || true
 
 echo "Running database migrations..."
 docker exec wharftales_gui php /var/www/html/migrate-rbac-2fa.php 2>/dev/null || echo "Migration will run on first access"
